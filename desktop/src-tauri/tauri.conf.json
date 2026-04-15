@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "paperchat",
+  "version": "0.1.0",
+  "identifier": "com.paperchat.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "paperchat",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost http://127.0.0.1:8000"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/llama-server",
+      "binaries/backend"
+    ],
+    "resources": [
+      "binaries/ggml.dll",
+      "binaries/ggml-base.dll",
+      "binaries/ggml-rpc.dll",
+      "binaries/ggml-cpu-x64.dll",
+      "binaries/ggml-cpu-haswell.dll",
+      "binaries/ggml-cpu-sandybridge.dll",
+      "binaries/ggml-cpu-ivybridge.dll",
+      "binaries/ggml-cpu-skylakex.dll",
+      "binaries/ggml-cpu-icelake.dll",
+      "binaries/ggml-cpu-cascadelake.dll",
+      "binaries/ggml-cpu-cooperlake.dll",
+      "binaries/ggml-cpu-cannonlake.dll",
+      "binaries/ggml-cpu-sapphirerapids.dll",
+      "binaries/ggml-cpu-alderlake.dll",
+      "binaries/ggml-cpu-zen4.dll",
+      "binaries/ggml-cpu-sse42.dll",
+      "binaries/ggml-cpu-piledriver.dll",
+      "binaries/llama.dll",
+      "binaries/mtmd.dll",
+      "binaries/libomp140.x86_64.dll"
+    ]
+  }
+}
