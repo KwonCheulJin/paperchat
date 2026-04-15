@@ -1,0 +1,253 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "사모펀드 RAG 평가 Golden Set",
+    "categories": {
+      "factual": 15,
+      "relational": 10,
+      "complex": 5
+    }
+  },
+  "questions": [
+    {
+      "id": "q001",
+      "category": "factual",
+      "question": "A 펀드의 예상 IRR은 얼마인가요?",
+      "ground_truth": "문서에 따르면 A 펀드의 예상 IRR은 18.5%입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q002",
+      "category": "factual",
+      "question": "이 투자의 총 약정 금액은 얼마인가요?",
+      "ground_truth": "총 약정 금액은 500억 원입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q003",
+      "category": "factual",
+      "question": "GP의 캐리 비율은 얼마인가요?",
+      "ground_truth": "GP의 캐리 비율은 20%입니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q004",
+      "category": "factual",
+      "question": "투자 대상 기업의 EBITDA는 얼마인가요?",
+      "ground_truth": "투자 대상 기업의 EBITDA는 120억 원입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q005",
+      "category": "factual",
+      "question": "펀드 만기는 언제인가요?",
+      "ground_truth": "펀드 만기는 설립일로부터 10년입니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q006",
+      "category": "factual",
+      "question": "허들 레이트는 몇 퍼센트인가요?",
+      "ground_truth": "허들 레이트는 연 8%입니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q007",
+      "category": "factual",
+      "question": "투자 대상 기업의 매출은 얼마인가요?",
+      "ground_truth": "투자 대상 기업의 연간 매출은 500억 원입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q008",
+      "category": "factual",
+      "question": "EV/EBITDA 멀티플은 얼마인가요?",
+      "ground_truth": "진입 EV/EBITDA 멀티플은 8.5배입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q009",
+      "category": "factual",
+      "question": "투자 집행 일정은 어떻게 됩니까?",
+      "ground_truth": "투자 집행은 2024년 Q3 완료 예정입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q010",
+      "category": "factual",
+      "question": "LP 의결권 행사 조건은 무엇인가요?",
+      "ground_truth": "LP의 의결권은 약정금액 기준 50% 초과 시 행사 가능합니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q011",
+      "category": "factual",
+      "question": "운용보수는 어떻게 산정되나요?",
+      "ground_truth": "운용보수는 약정금액의 연 2%로 산정됩니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q012",
+      "category": "factual",
+      "question": "EXIT 방식은 무엇인가요?",
+      "ground_truth": "IPO 또는 전략적 매각을 통한 EXIT을 계획하고 있습니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q013",
+      "category": "factual",
+      "question": "투자 대상의 주요 사업 영역은 무엇인가요?",
+      "ground_truth": "주요 사업 영역은 B2B SaaS 솔루션입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q014",
+      "category": "factual",
+      "question": "GP 코인베스트먼트 비율은 얼마인가요?",
+      "ground_truth": "GP 코인베스트먼트 비율은 총 약정금액의 1%입니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q015",
+      "category": "factual",
+      "question": "투자 대상 기업의 설립연도는 언제인가요?",
+      "ground_truth": "투자 대상 기업은 2015년에 설립되었습니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": false
+    },
+    {
+      "id": "q016",
+      "category": "relational",
+      "question": "A 펀드와 B 기업의 관계는 무엇인가요?",
+      "ground_truth": "A 펀드는 B 기업에 300억 원을 투자한 GP입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q017",
+      "category": "relational",
+      "question": "이 투자에서 GP와 LP의 권리 관계는 어떻게 되나요?",
+      "ground_truth": "GP는 운용 권한을 보유하고 LP는 감시 권한과 배당 우선권을 가집니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q018",
+      "category": "relational",
+      "question": "포트폴리오 기업 간 시너지는 무엇인가요?",
+      "ground_truth": "A사와 B사는 공급망 연계를 통해 원가를 15% 절감할 수 있습니다.",
+      "reference_doc": "sample_portfolio.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q019",
+      "category": "relational",
+      "question": "경쟁사 대비 투자 대상의 차별점은 무엇인가요?",
+      "ground_truth": "투자 대상은 경쟁사 대비 NPS 20점 높고 고객 이탈률이 30% 낮습니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q020",
+      "category": "relational",
+      "question": "핵심 임원진과 지분 구조는 어떻게 연결되나요?",
+      "ground_truth": "CEO 김철수는 30% 지분 보유, CFO 이영희는 10% 지분 보유입니다.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q021",
+      "category": "relational",
+      "question": "과거 투자 성과와 이번 딜의 연관성은 무엇인가요?",
+      "ground_truth": "GP의 전전 투자인 C 펀드 MOIC 2.3x 달성 이력이 이번 딜 구조에 반영되었습니다.",
+      "reference_doc": "sample_track_record.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q022",
+      "category": "relational",
+      "question": "자회사와 모회사의 재무 연결은 어떻게 되나요?",
+      "ground_truth": "자회사 D의 매출 200억 원이 모회사 연결 EBITDA에 포함됩니다.",
+      "reference_doc": "sample_financial.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q023",
+      "category": "relational",
+      "question": "리스크 요인들 간의 상관관계는 어떻게 되나요?",
+      "ground_truth": "금리 상승 리스크와 EXIT 밸류에이션 리스크는 양의 상관관계입니다.",
+      "reference_doc": "sample_risk.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q024",
+      "category": "relational",
+      "question": "투자 약관 변경이 배당에 미치는 영향은 무엇인가요?",
+      "ground_truth": "약관 변경 시 우선 배당 기준율이 8%에서 10%로 조정됩니다.",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q025",
+      "category": "relational",
+      "question": "시장 환경 변화가 투자 수익률에 미치는 영향은?",
+      "ground_truth": "금리 1% 상승 시 목표 IRR이 약 1.5%p 하락하는 것으로 분석됩니다.",
+      "reference_doc": "sample_sensitivity.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q026",
+      "category": "complex",
+      "question": "이 투자의 핵심 리스크 3가지와 각각의 대응 방안을 설명하세요.",
+      "ground_truth": "1) 시장 리스크: 헤징 전략 2) 경영 리스크: 락업 조항 3) 유동성 리스크: 2차 시장 매각 옵션",
+      "reference_doc": "sample_risk.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q027",
+      "category": "complex",
+      "question": "현재 밸류에이션이 적정한지 재무 지표를 종합하여 분석하세요.",
+      "ground_truth": "EV/EBITDA 8.5배는 동종 업계 평균 10배 대비 할인, PER 15배도 업계 중간값 수준으로 적정.",
+      "reference_doc": "sample_valuation.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q028",
+      "category": "complex",
+      "question": "5년 후 EXIT 시나리오별 투자 수익률을 비교하세요.",
+      "ground_truth": "Base: IRR 18.5% / Bull: IRR 25% / Bear: IRR 12% — 민감도 분석 결과.",
+      "reference_doc": "sample_sensitivity.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q029",
+      "category": "complex",
+      "question": "LP의 관점에서 이 투자의 장단점을 종합하세요.",
+      "ground_truth": "장점: 높은 IRR 전망, 안정적 현금흐름. 단점: 유동성 제한(10년 락업), 시장 변동성.",
+      "reference_doc": "sample_im.pdf",
+      "requires_ontology": true
+    },
+    {
+      "id": "q030",
+      "category": "complex",
+      "question": "투자 구조 개선을 위한 협상 포인트 3가지를 도출하세요.",
+      "ground_truth": "1) 허들 레이트 상향(8%→10%) 2) 드래그얼롱 조항 강화 3) 워런티 기간 연장(2→3년).",
+      "reference_doc": "sample_lpa.pdf",
+      "requires_ontology": true
+    }
+  ]
+}

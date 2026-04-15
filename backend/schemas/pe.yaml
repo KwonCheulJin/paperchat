@@ -1,0 +1,54 @@
+# 사모펀드(PE) 온톨로지 스키마
+# Schema-Constrained Prompting에서 사용
+version: "1.0"
+name: "private-equity"
+
+entity_types:
+  - name: Company
+    description: "투자 대상 기업 또는 관계사"
+    properties:
+      - name
+      - industry
+      - country
+  - name: Fund
+    description: "PE 펀드"
+    properties:
+      - name
+      - vintage_year
+      - size_usd
+  - name: Person
+    description: "임원, GP, LP 등 주요 인물"
+    properties:
+      - name
+      - role
+  - name: Financial
+    description: "재무 지표 (IRR, MOIC, EBITDA 등)"
+    properties:
+      - metric_name
+      - value
+      - unit
+
+relation_types:
+  - name: INVESTED_IN
+    from: Fund
+    to: Company
+  - name: MANAGED_BY
+    from: Fund
+    to: Person
+  - name: HAS_METRIC
+    from: Company
+    to: Financial
+  - name: SUBSIDIARY_OF
+    from: Company
+    to: Company
+
+extraction_prompt: |
+  다음 텍스트에서 사모펀드 관련 엔티티와 관계를 추출하세요.
+  엔티티 유형: {entity_types}
+  관계 유형: {relation_types}
+
+  출력 형식 (JSON):
+  {
+    "entities": [{"name": "...", "type": "...", "properties": {...}}],
+    "relations": [{"head": "...", "relation": "...", "tail": "...", "confidence": 0.9}]
+  }

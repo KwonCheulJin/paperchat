@@ -1,0 +1,39 @@
+# Rust / Tauri 빌드 결과물
+installer/src-tauri/target/
+desktop/src-tauri/target/
+
+# Node.js
+installer/node_modules/
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+backend/dist/
+backend/build/
+backend/*.spec
+
+# 환경변수 (민감 정보)
+project/.env
+.env
+.env.local
+
+# Installer 스테이징 바이너리 (빌드 산출물)
+installer/resources/
+
+# Tauri 번들 바이너리 (빌드 산출물 — GitHub 100MB 제한 초과)
+desktop/src-tauri/binaries/
+
+# Claude Code 로컬 설정
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# OS
+.DS_Store
+Thumbs.db
