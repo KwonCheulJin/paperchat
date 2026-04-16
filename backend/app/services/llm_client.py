@@ -33,7 +33,7 @@ async def health_check() -> bool:
 async def stream_chat(
     messages: list[dict],
     temperature: float = 0.1,
-    max_tokens: int = 2048,
+    max_tokens: int = 1024,
     stop_sequences: list[str] | None = None,
 ) -> AsyncGenerator[str, None]:
     """

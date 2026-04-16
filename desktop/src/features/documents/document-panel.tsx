@@ -16,8 +16,7 @@ const OTHER_LABEL = "(기타)";
 export default function DocumentPanel({ onClose }: Props) {
   const {
     documents,
-    uploadProgress,
-    isUploading,
+    folderProgress,
     loadDocuments,
     uploadFile,
     uploadFiles,
@@ -150,7 +149,7 @@ export default function DocumentPanel({ onClose }: Props) {
 
       {/* Upload area */}
       <div style={{ padding: "10px 10px 8px", flexShrink: 0 }}>
-        {isUploading ? (
+        {folderProgress !== null ? (
           <div
             style={{
               background: "#18181b",
@@ -159,11 +158,41 @@ export default function DocumentPanel({ onClose }: Props) {
               padding: "12px 14px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              {I.upload}
-              <span style={{ fontSize: 12, color: "#a1a1aa" }}>업로드 중...</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                {I.upload}
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: "#a1a1aa",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {folderProgress.total === 1
+                    ? folderProgress.folderName
+                    : `${folderProgress.folderName} (${folderProgress.done}/${folderProgress.total})`}
+                </span>
+              </div>
+              {folderProgress.failed > 0 && (
+                <span style={{ fontSize: 11, color: "#f59e0b", flexShrink: 0, marginLeft: 8 }}>
+                  ⚠ {folderProgress.failed}
+                </span>
+              )}
             </div>
             <div
+              role="progressbar"
+              aria-valuenow={folderProgress.done}
+              aria-valuemin={0}
+              aria-valuemax={folderProgress.total}
               style={{
                 height: 3,
                 background: "#27272a",
@@ -174,15 +203,20 @@ export default function DocumentPanel({ onClose }: Props) {
               <div
                 style={{
                   height: "100%",
-                  width: "30%",
+                  width: `${(folderProgress.done / folderProgress.total) * 100}%`,
                   background: "#a78bfa",
                   borderRadius: 2,
-                  animation: "indeterminate 1.2s ease-in-out infinite",
+                  transition: "width 0.3s ease",
                 }}
               />
             </div>
-            {uploadProgress && (
-              <p style={{ fontSize: 11, color: "#71717a", marginTop: 5 }}>{uploadProgress}</p>
+            {folderProgress.currentStatus && (
+              <p
+                aria-live="polite"
+                style={{ fontSize: 11, color: "#71717a", marginTop: 5 }}
+              >
+                {folderProgress.currentStatus}
+              </p>
             )}
           </div>
         ) : (

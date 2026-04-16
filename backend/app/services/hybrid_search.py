@@ -1,5 +1,5 @@
 """
-Hybrid 검색 — BGE-M3 dense (top-30) + BM25 FTS5 (top-30) → RRF 융합 → top-50.
+Hybrid 검색 — BGE-M3 dense (top-20) + BM25 FTS5 (top-20) → RRF 융합 → top-40.
 
 RRF (Reciprocal Rank Fusion):
   score(d) = Σ 1 / (k + rank_i(d))
@@ -22,7 +22,7 @@ RRF_K = 60  # RRF 상수 (표준값)
 
 def query_bm25(
     query_text: str,
-    n_results: int = 30,
+    n_results: int = 20,
     folder: str | None = None,
 ) -> list[dict]:
     """SQLite FTS5 BM25 검색 → top-n 반환. 쿼리 실패 시 빈 리스트 반환.
@@ -103,16 +103,16 @@ def _rrf_merge(
 
 def hybrid_search(
     query: str,
-    n_dense: int = 30,
-    n_bm25: int = 30,
-    top_k: int = 50,
+    n_dense: int = 20,
+    n_bm25: int = 20,
+    top_k: int = 40,
     folder: str | None = None,
 ) -> list[dict]:
     """
     Hybrid 검색 메인 함수.
     1. 용어 사전 확장 (glossary)
-    2. dense top-30 + BM25 top-30
-    3. RRF → top-50
+    2. dense top-20 + BM25 top-20
+    3. RRF → top-40
 
     folder=None → 전체 검색, 그 외 → 해당 폴더(빈 문자열은 기타)로 필터링.
     """

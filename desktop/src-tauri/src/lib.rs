@@ -237,6 +237,27 @@ fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)
     Some((model_path, 0))
 }
 
+/// Windows 표준 경로에서 Tesseract 실행 파일 탐색
+fn find_tesseract() -> Option<String> {
+    let candidates = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ];
+    for path in candidates.iter() {
+        if std::path::Path::new(path).exists() {
+            return Some((*path).to_string());
+        }
+    }
+    None
+}
+
+/// 이전 실행에서 남은 orphan backend.exe 프로세스 강제 종료
+fn kill_existing_backend() {
+    let _ = hidden_cmd("taskkill")
+        .args(["/F", "/IM", "backend.exe", "/T"])
+        .output();
+}
+
 /// 백엔드 프로세스 시작 (내부 공용 로직)
 fn launch_backend(data_dir: &std::path::Path) -> Result<(), String> {
     if is_port_open(BACKEND_PORT) {
@@ -262,6 +283,10 @@ fn launch_backend(data_dir: &std::path::Path) -> Result<(), String> {
         let mut cmd = hidden_cmd(backend_bin.to_str().unwrap());
         cmd.env("CHROMA_PATH", chroma_path.to_str().unwrap_or("./data/chroma"))
            .env("SQLITE_PATH", sqlite_path.to_str().unwrap_or("./data/paperchat.db"));
+        if let Some(tess) = find_tesseract() {
+            log_info!("Tesseract 감지: {}", tess);
+            cmd.env("TESSERACT_CMD", &tess);
+        }
         if let Some(f) = stdout_log { cmd.stdout(f); }
         if let Some(f) = stderr_log { cmd.stderr(f); }
         cmd.spawn().map_err(|e| format!("FastAPI 시작 실패: {}", e))?
@@ -310,12 +335,20 @@ fn launch_llama_server(model_path: &std::path::Path, n_gpu_layers: i32) -> Resul
     let existing_path = std::env::var("PATH").unwrap_or_default();
     let dll_path = format!("{};{}", dir.to_string_lossy(), existing_path);
 
+    // 물리 코어 수 추정 (하이퍼스레딩 제외) — CPU 전용 추론 최적화
+    let cpu_threads = std::thread::available_parallelism()
+        .map(|n| (n.get() / 2).max(2))
+        .unwrap_or(2)
+        .to_string();
+
     let child = hidden_cmd(llama_bin.to_str().unwrap_or("llama-server"))
         .args([
             "--model", model_path.to_str().unwrap_or(""),
             "--host", "127.0.0.1",
             "--port", "11434",
-            "--ctx-size", "8192",
+            "--ctx-size", "4096",          // 8192→4096: KV 캐시 ~1GB 절약
+            "--threads", &cpu_threads,     // 물리 코어 수 명시 (컨텍스트 전환 감소)
+            "--n-batch", "256",            // 프롬프트 처리 배치 (메모리 절약)
             "--n-gpu-layers", &n_gpu_layers.to_string(),
             "--cache-type-k", "q4_0",
             "--cache-type-v", "q4_0",
@@ -622,6 +655,10 @@ pub fn run() {
                     *p = Some(data_dir.join("tauri.log"));
                 }
                 log_info!("paperchat 시작 — data_dir={}", data_dir.display());
+
+                // 이전 실행의 orphan backend 프로세스 정리
+                kill_existing_backend();
+                std::thread::sleep(std::time::Duration::from_millis(500));
 
                 // 백엔드 시작
                 match launch_backend(&data_dir) {

@@ -15,7 +15,7 @@ interface MessageListProps {
 }
 
 export default function MessageList({ onRightPanelToggle }: MessageListProps) {
-  const { sessions, activeSessionId, isStreaming, sendMessage } = useChatStore();
+  const { sessions, activeSessionId, isStreaming, sendMessage, editAndResend } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -55,13 +55,6 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
     const lastUserMsg = userMessages[userMessages.length - 1];
     if (lastUserMsg) sendMessage(lastUserMsg.content);
   }, [activeSession, isStreaming, sendMessage]);
-
-  const handleEdit = useCallback(
-    (_content: string) => {
-      // TODO: edit modal
-    },
-    []
-  );
 
   if (messages.length === 0) {
     return (
@@ -170,7 +163,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             isLast={idx === messages.length - 1}
             onCopy={handleCopy}
             onRegenerate={handleRegenerate}
-            onEdit={handleEdit}
+            onEdit={(newContent) => editAndResend(msg.id, newContent)}
           />
         ))}
         <div ref={bottomRef} />

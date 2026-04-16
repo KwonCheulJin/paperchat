@@ -5,7 +5,7 @@
 1. PriorityScheduler.notify_chat() — 온톨로지 추출 일시정지
 2. SemanticCache 조회 (cosine ≥ 0.95 → 즉시 반환)
 3. Hybrid Search (BGE-M3 dense + BM25 FTS5 → RRF → top-50)
-4. Cross-Encoder Rerank → top-5
+4. Cross-Encoder Rerank → top-3
 5. 부모 섹션 텍스트 확장
 6. Spotlighting (DOCUMENT 태그 래핑)
 7. 프로필 기반 시스템 프롬프트 구성
@@ -87,9 +87,9 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
         yield f"data: {json.dumps({'type': 'error', 'message': '검색 중 오류가 발생했습니다.'}, ensure_ascii=False)}\n\n"
         return
 
-    # 5. Cross-Encoder Rerank → top-5 — CPU bound, executor로 실행
+    # 5. Cross-Encoder Rerank → top-3 — CPU bound, executor로 실행
     top_chunks = await loop.run_in_executor(
-        None, functools.partial(rerank, question, search_results, top_k=5)
+        None, functools.partial(rerank, question, search_results, top_k=3)
     )
 
     # 6. 부모 섹션 텍스트 확장

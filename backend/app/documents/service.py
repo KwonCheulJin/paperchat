@@ -48,6 +48,75 @@ def _extract_text_pymupdf(content: bytes) -> list[str]:
     return pages
 
 
+def _find_tesseract_cmd() -> str | None:
+    """Tesseract 실행 파일 경로 탐색.
+
+    우선순위:
+    1. TESSERACT_CMD 환경 변수 (Tauri에서 주입)
+    2. Windows 기본 설치 경로
+    """
+    import os, sys
+    env_path = os.environ.get("TESSERACT_CMD")
+    if env_path and os.path.exists(env_path):
+        return env_path
+    if sys.platform != "win32":
+        return None
+    candidates = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _extract_text_ocr(content: bytes) -> list[str]:
+    """Tesseract OCR로 스캔 PDF 텍스트 추출 (페이지별 이미지 렌더링 → OCR).
+
+    텍스트 레이어가 있는 페이지는 OCR 없이 직접 추출.
+    """
+    import fitz
+    from PIL import Image, ImageFilter, ImageEnhance
+    import pytesseract
+
+    # Windows Tesseract 경로 자동 설정
+    tess_cmd = _find_tesseract_cmd()
+    if tess_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tess_cmd
+
+    doc = fitz.open(stream=content, filetype="pdf")
+    pages: list[str] = []
+
+    for page in doc:
+        # 텍스트 레이어 우선 사용
+        existing = page.get_text().strip()
+        if len(existing) >= 50:
+            pages.append(existing)
+            continue
+
+        # 300 DPI 렌더링
+        mat = fitz.Matrix(300 / 72, 300 / 72)
+        pix = page.get_pixmap(matrix=mat)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+        # 전처리: 그레이스케일 → 대비 향상 → 샤프닝
+        img_gray = img.convert("L")
+        img_enh = ImageEnhance.Contrast(img_gray).enhance(2.0)
+        img_sharp = img_enh.filter(ImageFilter.SHARPEN)
+
+        text = pytesseract.image_to_string(
+            img_sharp,
+            lang="kor+eng",
+            config="--psm 3 --oem 1",
+        )
+        if text.strip():
+            pages.append(text)
+
+    doc.close()
+    return pages
+
+
 def _extract_text_pdfplumber(content: bytes) -> list[str]:
     """pdfplumber 폴백 — PyMuPDF 실패 시 사용."""
     import io
@@ -317,9 +386,21 @@ async def ingest_pdf(
         yield _sse({"type": "error", "message": str(e)})
         return
 
+    # 2-1. 텍스트 레이어 없음 → OCR 폴백 (스캔 PDF)
     if not pages:
-        yield _sse({"type": "error", "message": "PDF에서 텍스트를 추출할 수 없습니다."})
-        return
+        yield _sse({"type": "progress", "message": "OCR 처리 중... (스캔 PDF 감지됨)"})
+        try:
+            pages = await asyncio.get_event_loop().run_in_executor(
+                None, _extract_text_ocr, content
+            )
+        except Exception as e:
+            logger.error("ocr_failed", error=str(e))
+            yield _sse({"type": "error", "message": "OCR 처리 실패: Tesseract OCR이 설치되어 있는지 확인하세요."})
+            return
+
+        if not pages:
+            yield _sse({"type": "error", "message": "PDF 텍스트 추출 실패: 이미지 품질이 너무 낮거나 텍스트가 없는 문서입니다."})
+            return
 
     # 3. 계층적 청킹
     doc_id = str(uuid.uuid4())

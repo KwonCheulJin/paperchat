@@ -8,6 +8,7 @@ export type Message = {
   content: string;
   sources?: Source[];
   streaming?: boolean;
+  createdAt: number;
 };
 
 export type Session = {
@@ -28,6 +29,7 @@ type ChatStore = {
   createSession: () => void;
   setActiveSession: (id: string) => void;
   sendMessage: (content: string) => Promise<void>;
+  editAndResend: (messageId: string, newContent: string) => void;
   stopStreaming: () => void;
   setProfile: (profile: string) => void;
   deleteSession: (id: string) => void;
@@ -90,7 +92,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               title: sess.messages.length === 0 ? content.slice(0, 20) || "새 대화" : sess.title,
               messages: [
                 ...sess.messages,
-                { id: userMsgId, role: "user" as const, content },
+                { id: userMsgId, role: "user" as const, content, createdAt: Date.now() },
               ],
             }
           : sess
@@ -105,7 +107,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               ...sess,
               messages: [
                 ...sess.messages,
-                { id: assistantMsgId, role: "assistant" as const, content: "", streaming: true },
+                { id: assistantMsgId, role: "assistant" as const, content: "", streaming: true, createdAt: Date.now() },
               ],
             }
           : sess
@@ -208,6 +210,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             : s.activeSessionId,
       };
     }),
+
+  editAndResend: (messageId, newContent) => {
+    const { sessions, activeSessionId, sendMessage } = get();
+    const session = sessions.find((s) => s.id === activeSessionId);
+    if (!session) return;
+    const messageIndex = session.messages.findIndex((m) => m.id === messageId);
+    if (messageIndex === -1) return;
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === activeSessionId
+          ? { ...sess, messages: sess.messages.slice(0, messageIndex) }
+          : sess
+      ),
+    }));
+    sendMessage(newContent);
+  },
 
   setActiveFolder: (folder) => set({ activeFolder: folder }),
 }));

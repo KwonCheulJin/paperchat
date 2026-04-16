@@ -102,6 +102,9 @@ export function ErrorMsg({ message }: { message: string }) {
   );
 }
 
+const formatTime = (ts: number) =>
+  new Date(ts).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", hour12: true });
+
 export default function ChatMessage({
   message,
   isStreaming,
@@ -112,12 +115,41 @@ export default function ChatMessage({
 }: ChatMessageProps) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(message.content);
 
   const handleCopy = () => {
     onCopy(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleSubmitEdit = () => {
+    if (!editedContent.trim()) return;
+    setEditing(false);
+    onEdit(editedContent);
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditedContent(message.content);
+  };
+
+  const handleTextareaInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    e.currentTarget.style.height = "auto";
+    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+  };
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      handleCancelEdit();
+    } else if (e.key === "Enter" && e.ctrlKey) {
+      e.preventDefault();
+      handleSubmitEdit();
+    }
+  };
+
+  const ts = message.createdAt ?? parseInt(message.id);
 
   if (message.role === "user") {
     return (
@@ -131,36 +163,96 @@ export default function ChatMessage({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div style={{ maxWidth: "72%", position: "relative" }}>
-          {hovered && (
-            <div
-              style={{
-                position: "absolute",
-                top: -22,
-                right: 0,
-                display: "flex",
-                gap: 2,
-              }}
-            >
-              <Tb icon={I.edit} tip="편집" onClick={() => onEdit(message.content)} />
-              <Tb icon={I.copy} tip="복사" onClick={handleCopy} />
-            </div>
+        <div style={{ maxWidth: "72%" }}>
+          {editing ? (
+            <>
+              <textarea
+                aria-label="질문 편집"
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                onInput={handleTextareaInput}
+                onKeyDown={handleTextareaKeyDown}
+                autoFocus
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                    const len = el.value.length;
+                    el.setSelectionRange(len, len);
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  background: "#1f1f23",
+                  border: "1px solid #3f3f46",
+                  borderRadius: "12px 12px 4px 12px",
+                  padding: "10px 14px",
+                  color: "#d4d4d8",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  resize: "none",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    fontSize: 12,
+                    color: "#71717a",
+                    cursor: "pointer",
+                    padding: "6px 8px",
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitEdit}
+                  style={{
+                    background: "#a78bfa",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 14px",
+                    fontSize: 12,
+                    color: "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  다시 질문
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  background: "#1f1f23",
+                  border: "1px solid #27272a",
+                  borderRadius: "12px 12px 4px 12px",
+                  padding: "10px 14px",
+                  color: "#d4d4d8",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {message.content}
+              </div>
+              {hovered && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: "#52525b" }}>{formatTime(ts)}</span>
+                  <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="#4ade80" />
+                  <Tb icon={I.edit} tip="편집" onClick={() => setEditing(true)} disabled={isStreaming} />
+                </div>
+              )}
+            </>
           )}
-          <div
-            style={{
-              background: "#1f1f23",
-              border: "1px solid #27272a",
-              borderRadius: "12px 12px 4px 12px",
-              padding: "10px 14px",
-              color: "#d4d4d8",
-              fontSize: 14,
-              lineHeight: 1.6,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {message.content}
-          </div>
         </div>
       </div>
     );
