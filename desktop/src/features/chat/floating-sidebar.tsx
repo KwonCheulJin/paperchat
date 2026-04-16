@@ -54,9 +54,15 @@ export default function FloatingSidebar({
           [side]: 0,
           top: 0,
           bottom: 0,
-          width: open ? 240 : 0,
-          overflow: "hidden",
-          transition: "width 0.2s ease",
+          width: 240,
+          transform: open
+            ? "translateX(0)"
+            : side === "left"
+            ? "translateX(-100%)"
+            : "translateX(100%)",
+          opacity: open ? 1 : 0,
+          visibility: open ? "visible" : "hidden",
+          transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, visibility 0.2s",
           background: "var(--sidebar)",
           borderRight: side === "left" ? "1px solid var(--border)" : undefined,
           borderLeft: side === "right" ? "1px solid var(--border)" : undefined,
@@ -67,6 +73,7 @@ export default function FloatingSidebar({
             : undefined,
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
       >
         <div
