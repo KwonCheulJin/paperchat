@@ -6,6 +6,52 @@ const BACKEND_PORT: u16 = 8000;
 const LLAMA_PORT: u16 = 11434;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+// ─── Windows Job Object (부모 종료 시 자식 자동 종료) ────────────────────────
+// paperchat.exe가 강제 종료되어도 backend/llama-server가 따라 죽도록 보장
+#[cfg(windows)]
+mod job {
+    use std::ffi::c_void;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
+        JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+
+    // *mut c_void는 Send/Sync가 아니므로 래퍼로 감싼다
+    struct Handle(*mut c_void);
+    unsafe impl Send for Handle {}
+    unsafe impl Sync for Handle {}
+
+    static JOB_HANDLE: std::sync::OnceLock<Handle> = std::sync::OnceLock::new();
+
+    /// 앱 시작 시 한 번 호출 — Kill-on-close Job Object 생성
+    pub fn init() {
+        let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if job.is_null() { return; }
+
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { std::mem::zeroed() };
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        unsafe {
+            SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                &mut info as *mut _ as *mut c_void,
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            );
+        }
+        let _ = JOB_HANDLE.set(Handle(job));
+    }
+
+    /// 자식 프로세스를 Job에 등록 — 이후 paperchat 종료 시 자동 종료됨
+    pub fn assign(child: &std::process::Child) {
+        let job = match JOB_HANDLE.get() { Some(h) => h.0, None => return };
+        let handle = child.as_raw_handle() as *mut c_void;
+        unsafe { AssignProcessToJobObject(job, handle) };
+    }
+}
+
 /// 로그 파일 경로 (data_dir 확정 전에는 None)
 static LOG_PATH: Lazy<Mutex<Option<std::path::PathBuf>>> = Lazy::new(|| Mutex::new(None));
 
@@ -298,6 +344,10 @@ fn launch_backend(data_dir: &std::path::Path) -> Result<(), String> {
             .map_err(|e| format!("uvicorn 시작 실패: {}", e))?
     };
 
+    // Job Object에 등록: paperchat 종료 시 backend도 자동 종료
+    #[cfg(windows)]
+    job::assign(&child);
+
     *guard = Some(child);
     Ok(())
 }
@@ -359,6 +409,10 @@ fn launch_llama_server(model_path: &std::path::Path, n_gpu_layers: i32) -> Resul
         .current_dir(&dir)
         .spawn()
         .map_err(|e| format!("llama-server 시작 실패: {}", e))?;
+
+    // Job Object에 등록: paperchat 종료 시 llama-server도 자동 종료
+    #[cfg(windows)]
+    job::assign(&child);
 
     *guard = Some(child);
     Ok(())
@@ -655,6 +709,10 @@ pub fn run() {
                     *p = Some(data_dir.join("tauri.log"));
                 }
                 log_info!("paperchat 시작 — data_dir={}", data_dir.display());
+
+                // Job Object 초기화: 이후 등록된 자식 프로세스는 paperchat 종료 시 자동 종료
+                #[cfg(windows)]
+                job::init();
 
                 // 이전 실행의 orphan backend 프로세스 정리
                 kill_existing_backend();
