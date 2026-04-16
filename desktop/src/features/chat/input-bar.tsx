@@ -1,5 +1,6 @@
-import { useState, useRef, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { useChatStore } from "../../store/chat";
+import { useDocumentsStore } from "../../store/documents";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import ProfileSelector from "./profile-selector";
@@ -12,8 +13,25 @@ interface InputBarProps {
 
 export default function InputBar({ onFolderToggle }: InputBarProps) {
   const { isStreaming, sendMessage, stopStreaming } = useChatStore();
+  const { uploadFile, uploadFiles } = useDocumentsStore();
   const [text, setText] = useState("");
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 외부 클릭 시 팝업 닫기
+  useEffect(() => {
+    if (!showUploadMenu) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUploadMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [showUploadMenu]);
 
   const canSend = text.trim().length > 0 && !isStreaming;
 
@@ -54,6 +72,39 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
         borderTop: "1px solid var(--surface-2)",
       }}
     >
+      {/* Hidden file inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadFile(file);
+          e.target.value = "";
+          setShowUploadMenu(false);
+        }}
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        accept=".pdf"
+        {...{ webkitdirectory: "" }}
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []).filter((f) =>
+            f.name.endsWith(".pdf")
+          );
+          if (files.length > 0) {
+            const folderName = (files[0] as File & { webkitRelativePath: string })
+              .webkitRelativePath.split("/")[0];
+            uploadFiles(files, folderName);
+          }
+          e.target.value = "";
+          setShowUploadMenu(false);
+        }}
+      />
+
       {/* Main input container */}
       <div
         style={{
@@ -68,10 +119,91 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
       >
         {/* Textarea row */}
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
-          {/* Attach button */}
-          <Tb icon={I.attach} tip="파일 첨부" disabled />
+          {/* Upload button + popup */}
+          <div ref={menuRef} style={{ position: "relative" }}>
+            <Tb
+              icon={I.attach}
+              tip="파일 업로드"
+              onClick={() => setShowUploadMenu((v) => !v)}
+              act={showUploadMenu}
+              activeColor="#a78bfa"
+            />
+            {showUploadMenu && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 4px)",
+                  left: 0,
+                  background: "#18181b",
+                  border: "1px solid #27272a",
+                  borderRadius: 8,
+                  padding: "4px",
+                  zIndex: 50,
+                  minWidth: 160,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                }}
+              >
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "7px 10px",
+                    fontSize: 13,
+                    color: "#a1a1aa",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#27272a";
+                    e.currentTarget.style.color = "#d4d4d8";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#a1a1aa";
+                  }}
+                >
+                  {I.attach}
+                  <span>PDF 파일 추가</span>
+                </button>
+                <button
+                  onClick={() => folderInputRef.current?.click()}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "7px 10px",
+                    fontSize: 13,
+                    color: "#a1a1aa",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#27272a";
+                    e.currentTarget.style.color = "#d4d4d8";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#a1a1aa";
+                  }}
+                >
+                  {I.folder}
+                  <span>폴더 추가</span>
+                </button>
+              </div>
+            )}
+          </div>
 
-          {/* Folder toggle */}
+          {/* Folder toggle (오른쪽 패널) */}
           <Tb icon={I.folder} tip="문서 패널" onClick={onFolderToggle} />
 
           {/* Textarea */}
