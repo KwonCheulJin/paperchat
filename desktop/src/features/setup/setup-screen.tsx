@@ -29,8 +29,8 @@ export default function SetupScreen() {
         style={{
           display: "flex",
           height: "100vh",
-          background: "#09090b",
-          color: "#d4d4d8",
+          background: "var(--background)",
+          color: "var(--foreground)",
           alignItems: "center",
           justifyContent: "center",
           fontFamily: "system-ui, -apple-system, sans-serif",
@@ -43,8 +43,8 @@ export default function SetupScreen() {
             flexDirection: "column",
             gap: 24,
             padding: 32,
-            background: "#0c0d10",
-            border: "1px solid #27272a",
+            background: "var(--sidebar)",
+            border: "1px solid var(--border)",
             borderRadius: 16,
             boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
           }}
@@ -52,11 +52,11 @@ export default function SetupScreen() {
           {/* 헤더 */}
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 20, fontWeight: 700, color: "#d4d4d8" }}>
+              <span style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)" }}>
                 paperchat 설정
               </span>
             </div>
-            <p style={{ fontSize: 13, color: "#71717a", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
               채팅에 사용할 AI 모델을 다운로드합니다
             </p>
           </div>
@@ -67,11 +67,11 @@ export default function SetupScreen() {
               <span
                 style={{
                   padding: "3px 10px",
-                  background: "#18181b",
-                  border: "1px solid #27272a",
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: 6,
                   fontSize: 12,
-                  color: "#a1a1aa",
+                  color: "var(--text-secondary)",
                 }}
               >
                 RAM {ramGb}GB
@@ -81,11 +81,11 @@ export default function SetupScreen() {
                   title={gpuName}
                   style={{
                     padding: "3px 10px",
-                    background: "#18181b",
-                    border: "1px solid #27272a",
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
                     borderRadius: 6,
                     fontSize: 12,
-                    color: "#a1a1aa",
+                    color: "var(--text-secondary)",
                     maxWidth: 220,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -101,7 +101,7 @@ export default function SetupScreen() {
           {/* 모델 선택 */}
           {!isInitializing && !isStartingLlm && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, color: "#a1a1aa" }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
                 모델 선택
               </label>
               <select
@@ -114,11 +114,11 @@ export default function SetupScreen() {
                 style={{
                   width: "100%",
                   padding: "8px 12px",
-                  background: "#18181b",
-                  border: "1px solid #27272a",
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 13,
-                  color: "#d4d4d8",
+                  color: "var(--foreground)",
                   cursor: isDownloading ? "not-allowed" : "pointer",
                   outline: "none",
                   opacity: isDownloading ? 0.5 : 1,
@@ -132,7 +132,7 @@ export default function SetupScreen() {
                 ))}
               </select>
               {selectedModel && (
-                <p style={{ fontSize: 12, color: "#52525b" }}>
+                <p style={{ fontSize: 12, color: "var(--text-dim)" }}>
                   {selectedModel.size_gb}GB 다운로드 필요
                   {selectedModel.n_gpu_layers > 0 ? " · GPU 가속" : " · CPU 전용"}
                 </p>
@@ -142,7 +142,7 @@ export default function SetupScreen() {
 
           {/* 초기화 중 스피너 */}
           {(isInitializing || isStartingLlm) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#52525b", fontSize: 13 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text-dim)", fontSize: 13 }}>
               <span style={{ animation: "tp 1.2s ease infinite", display: "inline-block" }}>•</span>
               <span>{isStartingLlm ? "AI 모델 초기화 중..." : "시스템 확인 중..."}</span>
             </div>
@@ -151,7 +151,7 @@ export default function SetupScreen() {
           {/* 프로그레스바 */}
           {isDownloading && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#71717a" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
                 <span>
                   {downloadedMb.toFixed(0)}MB / {totalMb.toFixed(0)}MB
                 </span>
@@ -161,7 +161,7 @@ export default function SetupScreen() {
                 style={{
                   width: "100%",
                   height: 6,
-                  background: "#1f1f23",
+                  background: "var(--surface-2)",
                   borderRadius: 999,
                   overflow: "hidden",
                 }}
@@ -170,13 +170,13 @@ export default function SetupScreen() {
                   style={{
                     width: `${downloadPercent}%`,
                     height: "100%",
-                    background: "#a78bfa",
+                    background: "var(--primary)",
                     borderRadius: 999,
                     transition: "width 0.3s ease",
                   }}
                 />
               </div>
-              <p style={{ fontSize: 12, color: "#52525b", textAlign: "center" }}>
+              <p style={{ fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>
                 {downloadPercent}% 완료
               </p>
             </div>
@@ -192,20 +192,20 @@ export default function SetupScreen() {
                     width: "100%",
                     padding: "10px 16px",
                     background: "transparent",
-                    border: "1px solid #3f3f46",
+                    border: "1px solid var(--input)",
                     borderRadius: 8,
                     fontSize: 13,
-                    color: "#71717a",
+                    color: "var(--text-muted)",
                     cursor: "pointer",
                     transition: "border-color 0.15s, color 0.15s",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#52525b";
-                    e.currentTarget.style.color = "#a1a1aa";
+                    e.currentTarget.style.borderColor = "var(--text-dim)";
+                    e.currentTarget.style.color = "var(--text-secondary)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#3f3f46";
-                    e.currentTarget.style.color = "#71717a";
+                    e.currentTarget.style.borderColor = "var(--input)";
+                    e.currentTarget.style.color = "var(--text-muted)";
                   }}
                 >
                   취소
@@ -217,12 +217,12 @@ export default function SetupScreen() {
                   style={{
                     width: "100%",
                     padding: "10px 16px",
-                    background: selectedModel ? "#a78bfa" : "#27272a",
+                    background: selectedModel ? "var(--primary)" : "var(--border)",
                     border: "none",
                     borderRadius: 8,
                     fontSize: 13,
                     fontWeight: 600,
-                    color: selectedModel ? "#09090b" : "#52525b",
+                    color: selectedModel ? "var(--background)" : "var(--text-dim)",
                     cursor: selectedModel ? "pointer" : "not-allowed",
                     transition: "opacity 0.15s",
                   }}

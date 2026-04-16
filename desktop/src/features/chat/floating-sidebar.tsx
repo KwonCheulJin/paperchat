@@ -22,9 +22,9 @@ export default function FloatingSidebar({
         style={{
           width: 240,
           flexShrink: 0,
-          background: "#0c0d10",
-          borderRight: side === "left" ? "1px solid #27272a" : undefined,
-          borderLeft: side === "right" ? "1px solid #27272a" : undefined,
+          background: "var(--sidebar)",
+          borderRight: side === "left" ? "1px solid var(--border)" : undefined,
+          borderLeft: side === "right" ? "1px solid var(--border)" : undefined,
           display: "flex",
           flexDirection: "column",
           height: "100%",
@@ -57,9 +57,9 @@ export default function FloatingSidebar({
           width: open ? 240 : 0,
           overflow: "hidden",
           transition: "width 0.2s ease",
-          background: "#0c0d10",
-          borderRight: side === "left" ? "1px solid #27272a" : undefined,
-          borderLeft: side === "right" ? "1px solid #27272a" : undefined,
+          background: "var(--sidebar)",
+          borderRight: side === "left" ? "1px solid var(--border)" : undefined,
+          borderLeft: side === "right" ? "1px solid var(--border)" : undefined,
           boxShadow: open
             ? side === "left"
               ? "4px 0 20px rgba(0,0,0,0.5)"

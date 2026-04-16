@@ -24,12 +24,12 @@ function SourceBadge({ source }: { source: Source }) {
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
         style={{
-          background: "#1f1f23",
-          border: "1px solid #27272a",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
           borderRadius: 4,
           padding: "2px 8px",
           fontSize: 11,
-          color: "#71717a",
+          color: "var(--text-muted)",
           cursor: "default",
           lineHeight: 1.5,
         }}
@@ -46,20 +46,20 @@ function SourceBadge({ source }: { source: Source }) {
             zIndex: 100,
             width: 280,
             padding: 12,
-            background: "#18181b",
-            border: "1px solid #27272a",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             borderRadius: 8,
             boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
           }}
         >
-          <p style={{ fontWeight: 600, color: "#d4d4d8", marginBottom: 4, fontSize: 12 }}>
+          <p style={{ fontWeight: 600, color: "var(--foreground)", marginBottom: 4, fontSize: 12 }}>
             {source.filename}
           </p>
-          <p style={{ color: "#71717a", fontSize: 11, lineHeight: 1.5 }}>
+          <p style={{ color: "var(--text-muted)", fontSize: 11, lineHeight: 1.5 }}>
             {source.text.slice(0, 200)}
             {source.text.length > 200 ? "…" : ""}
           </p>
-          <p style={{ color: "#52525b", fontSize: 11, marginTop: 4 }}>
+          <p style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 4 }}>
             유사도: {(source.score * 100).toFixed(1)}%
           </p>
         </div>
@@ -87,10 +87,10 @@ export function ErrorMsg({ message }: { message: string }) {
         alignItems: "flex-start",
         gap: 8,
         padding: "10px 14px",
-        background: "rgba(248,113,113,0.08)",
-        border: "1px solid rgba(248,113,113,0.2)",
+        background: "color-mix(in oklch, var(--destructive) 8%, transparent)",
+        border: "1px solid color-mix(in oklch, var(--destructive) 20%, transparent)",
         borderRadius: 10,
-        color: "#f87171",
+        color: "var(--destructive)",
         fontSize: 13,
         lineHeight: 1.5,
         margin: "4px 0",
@@ -183,11 +183,11 @@ export default function ChatMessage({
                 }}
                 style={{
                   width: "100%",
-                  background: "#1f1f23",
-                  border: "1px solid #3f3f46",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--input)",
                   borderRadius: "12px 12px 4px 12px",
                   padding: "10px 14px",
-                  color: "#d4d4d8",
+                  color: "var(--foreground)",
                   fontSize: 14,
                   lineHeight: 1.6,
                   resize: "none",
@@ -203,7 +203,7 @@ export default function ChatMessage({
                     background: "transparent",
                     border: "none",
                     fontSize: 12,
-                    color: "#71717a",
+                    color: "var(--text-muted)",
                     cursor: "pointer",
                     padding: "6px 8px",
                   }}
@@ -214,12 +214,12 @@ export default function ChatMessage({
                   type="button"
                   onClick={handleSubmitEdit}
                   style={{
-                    background: "#a78bfa",
+                    background: "var(--primary)",
                     border: "none",
                     borderRadius: 8,
                     padding: "6px 14px",
                     fontSize: 12,
-                    color: "#fff",
+                    color: "var(--primary-foreground)",
                     cursor: "pointer",
                   }}
                 >
@@ -231,11 +231,11 @@ export default function ChatMessage({
             <>
               <div
                 style={{
-                  background: "#1f1f23",
-                  border: "1px solid #27272a",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
                   borderRadius: "12px 12px 4px 12px",
                   padding: "10px 14px",
-                  color: "#d4d4d8",
+                  color: "var(--foreground)",
                   fontSize: 14,
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
@@ -246,8 +246,8 @@ export default function ChatMessage({
               </div>
               {hovered && (
                 <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: 4 }}>
-                  <span style={{ fontSize: 11, color: "#52525b" }}>{formatTime(ts)}</span>
-                  <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="#4ade80" />
+                  <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{formatTime(ts)}</span>
+                  <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="var(--success)" />
                   <Tb icon={I.edit} tip="편집" onClick={() => setEditing(true)} disabled={isStreaming} />
                 </div>
               )}
@@ -270,10 +270,10 @@ export default function ChatMessage({
 
       {/* Content */}
       {message.content && (
-        <div style={{ fontSize: 14, color: "#d4d4d8", lineHeight: 1.7 }}>
+        <div style={{ fontSize: 14, color: "var(--foreground)", lineHeight: 1.7 }}>
           {parseMarkdown(message.content)}
           {isStreaming && (
-            <span style={{ animation: "cb 1s step-end infinite", color: "#a78bfa", marginLeft: 1 }}>
+            <span style={{ animation: "cb 1s step-end infinite", color: "var(--primary)", marginLeft: 1 }}>
               ▋
             </span>
           )}
@@ -293,7 +293,7 @@ export default function ChatMessage({
             tip={copied ? "복사됨" : "복사"}
             onClick={handleCopy}
             act={copied}
-            activeColor="#4ade80"
+            activeColor="var(--success)"
           />
           <Tb icon={I.thumbUp} tip="좋아요 (준비 중)" disabled />
           <Tb icon={I.thumbDown} tip="싫어요 (준비 중)" disabled />

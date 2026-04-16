@@ -24,8 +24,8 @@ export default function ChatPage() {
         style={{
           display: "flex",
           height: "100vh",
-          background: "#09090b",
-          color: "#d4d4d8",
+          background: "var(--background)",
+          color: "var(--foreground)",
           overflow: "hidden",
         }}
       >
@@ -55,7 +55,7 @@ export default function ChatPage() {
               justifyContent: "space-between",
               padding: "0 12px",
               height: 44,
-              borderBottom: "1px solid #1f1f23",
+              borderBottom: "1px solid var(--surface-2)",
               flexShrink: 0,
             }}
           >
@@ -65,14 +65,14 @@ export default function ChatPage() {
                 tip={leftPinned ? "사이드바 해제" : "사이드바 고정"}
                 onClick={() => setLeftPinned((v) => !v)}
                 act={leftPinned}
-                activeColor="#a78bfa"
+                activeColor="var(--primary)"
               />
-              <span style={{ fontSize: 13, color: "#52525b" }}>paperchat</span>
-              <span style={{ fontSize: 13, color: "#3f3f46" }}>/</span>
+              <span style={{ fontSize: 13, color: "var(--text-dim)" }}>paperchat</span>
+              <span style={{ fontSize: 13, color: "var(--input)" }}>/</span>
               <span
                 style={{
                   fontSize: 13,
-                  color: "#a1a1aa",
+                  color: "var(--text-secondary)",
                   maxWidth: 240,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -87,7 +87,7 @@ export default function ChatPage() {
               tip={rightPinned ? "문서 패널 해제" : "문서 패널 고정"}
               onClick={() => setRightPinned((v) => !v)}
               act={rightPinned}
-              activeColor="#a78bfa"
+              activeColor="var(--primary)"
             />
           </div>
 

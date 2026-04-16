@@ -30,7 +30,7 @@ export function parseInline(t: string): React.ReactNode[] {
 
     if (fm.t === "b") {
       parts.push(
-        <strong key={k++} style={{ color: "#e4e4e7", fontWeight: 600 }}>
+        <strong key={k++} style={{ color: "var(--foreground)", fontWeight: 600 }}>
           {fm.m[1]}
         </strong>
       );
@@ -39,8 +39,8 @@ export function parseInline(t: string): React.ReactNode[] {
         <code
           key={k++}
           style={{
-            background: "rgba(113,113,122,0.15)",
-            color: "#a1a1aa",
+            background: "color-mix(in oklch, var(--text-muted) 15%, transparent)",
+            color: "var(--text-secondary)",
             padding: "2px 6px",
             borderRadius: 4,
             fontSize: "0.88em",
@@ -76,10 +76,10 @@ function MdTable({ lines }: { lines: string[] }) {
                 style={{
                   padding: "8px 12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #27272a",
-                  color: "#a1a1aa",
+                  borderBottom: "1px solid var(--border)",
+                  color: "var(--text-secondary)",
                   fontWeight: 600,
-                  background: "#1f1f23",
+                  background: "var(--surface-2)",
                   whiteSpace: "nowrap",
                 }}
               >
@@ -90,9 +90,9 @@ function MdTable({ lines }: { lines: string[] }) {
         </thead>
         <tbody>
           {body.map((row, ri) => (
-            <tr key={ri} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            <tr key={ri} style={{ borderBottom: "1px solid color-mix(in oklch, white 4%, transparent)" }}>
               {row.map((cell, ci) => (
-                <td key={ci} style={{ padding: "7px 12px", color: "#d4d4d8" }}>
+                <td key={ci} style={{ padding: "7px 12px", color: "var(--foreground)" }}>
                   {parseInline(cell)}
                 </td>
               ))}
@@ -134,7 +134,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       el.push(
         <div
           key={k++}
-          style={{ fontSize: sz[hm[1].length], fontWeight: 700, color: "#d4d4d8", margin: "14px 0 6px" }}
+          style={{ fontSize: sz[hm[1].length], fontWeight: 700, color: "var(--foreground)", margin: "14px 0 6px" }}
         >
           {parseInline(hm[2])}
         </div>
@@ -148,7 +148,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       el.push(
         <hr
           key={k++}
-          style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.06)", margin: "14px 0" }}
+          style={{ border: "none", borderTop: "1px solid color-mix(in oklch, white 6%, transparent)", margin: "14px 0" }}
         />
       );
       i++;
@@ -166,10 +166,10 @@ export function parseMarkdown(text: string): React.ReactNode[] {
         <div
           key={k++}
           style={{
-            borderLeft: "3px solid #52525b",
+            borderLeft: "3px solid var(--text-dim)",
             margin: "10px 0",
-            color: "#a1a1aa",
-            background: "rgba(255,255,255,0.02)",
+            color: "var(--text-secondary)",
+            background: "color-mix(in oklch, white 2%, transparent)",
             padding: "10px 14px",
             borderRadius: "0 8px 8px 0",
           }}
@@ -195,7 +195,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
         <ul key={k++} style={{ margin: "8px 0", paddingLeft: 18, listStyle: "none" }}>
           {items.map((it, ii) => (
             <li key={ii} style={{ position: "relative", paddingLeft: 14, marginBottom: 3, lineHeight: 1.7 }}>
-              <span style={{ position: "absolute", left: 0, color: "#71717a" }}>•</span>
+              <span style={{ position: "absolute", left: 0, color: "var(--text-muted)" }}>•</span>
               {parseInline(it)}
             </li>
           ))}
@@ -215,7 +215,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
         <ol key={k++} style={{ margin: "8px 0", paddingLeft: 4, listStyle: "none" }}>
           {items.map((it, ii) => (
             <li key={ii} style={{ display: "flex", gap: 10, marginBottom: 3, lineHeight: 1.7 }}>
-              <span style={{ color: "#71717a", fontWeight: 600, fontSize: 13, minWidth: 18 }}>
+              <span style={{ color: "var(--text-muted)", fontWeight: 600, fontSize: 13, minWidth: 18 }}>
                 {ii + 1}.
               </span>
               <span>{parseInline(it)}</span>

@@ -79,13 +79,13 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             alignItems: "center",
             justifyContent: "center",
             fontSize: 28,
-            color: "#3f3f46",
+            color: "var(--input)",
             animation: "float 3s ease-in-out infinite",
           }}
         >
           ✦
         </div>
-        <p style={{ color: "#52525b", fontSize: 14 }}>무엇이든 물어보세요</p>
+        <p style={{ color: "var(--text-dim)", fontSize: 14 }}>무엇이든 물어보세요</p>
         {/* Suggestion chips */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 480 }}>
           {SUGGESTIONS.map((s) => (
@@ -93,22 +93,22 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
               key={s}
               onClick={() => sendMessage(s)}
               style={{
-                background: "#18181b",
-                border: "1px solid #27272a",
+                background: "var(--card)",
+                border: "1px solid var(--border)",
                 borderRadius: 20,
                 padding: "7px 14px",
                 fontSize: 12,
-                color: "#71717a",
+                color: "var(--text-muted)",
                 cursor: "pointer",
                 transition: "color 0.15s, border-color 0.15s",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = "#a1a1aa";
-                e.currentTarget.style.borderColor = "#3f3f46";
+                e.currentTarget.style.color = "var(--text-secondary)";
+                e.currentTarget.style.borderColor = "var(--input)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = "#71717a";
-                e.currentTarget.style.borderColor = "#27272a";
+                e.currentTarget.style.color = "var(--text-muted)";
+                e.currentTarget.style.borderColor = "var(--border)";
               }}
             >
               {s}
@@ -123,16 +123,16 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             alignItems: "center",
             gap: 6,
             background: "transparent",
-            border: "1px solid #27272a",
+            border: "1px solid var(--border)",
             borderRadius: 8,
             padding: "6px 12px",
             fontSize: 12,
-            color: "#52525b",
+            color: "var(--text-dim)",
             cursor: "pointer",
             transition: "color 0.15s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#71717a")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#52525b")}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
         >
           {I.folder}
           <span>문서를 업로드하면 정확도가 높아집니다</span>
@@ -181,15 +181,15 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             bottom: 16,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#18181b",
-            border: "1px solid #27272a",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             borderRadius: 20,
             padding: "5px 14px",
             display: "flex",
             alignItems: "center",
             gap: 5,
             fontSize: 12,
-            color: "#71717a",
+            color: "var(--text-muted)",
             cursor: "pointer",
             boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
             zIndex: 10,

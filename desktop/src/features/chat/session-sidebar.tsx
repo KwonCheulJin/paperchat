@@ -30,7 +30,7 @@ export default function SessionSidebar() {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "#0c0d10",
+        background: "var(--sidebar)",
         overflow: "hidden",
       }}
     >
@@ -48,7 +48,7 @@ export default function SessionSidebar() {
           style={{
             fontSize: 13,
             fontWeight: 700,
-            color: "#d4d4d8",
+            color: "var(--foreground)",
             letterSpacing: "0.02em",
           }}
         >
@@ -62,7 +62,7 @@ export default function SessionSidebar() {
               tip={t.tip}
               onClick={() => setTab(t.id)}
               act={tab === t.id}
-              activeColor="#a78bfa"
+              activeColor="var(--primary)"
             />
           ))}
         </div>
@@ -89,7 +89,7 @@ export default function SessionSidebar() {
                     borderRadius: 7,
                     padding: "7px 8px",
                     fontSize: 13,
-                    color: isEnabled ? "#71717a" : "#3f3f46",
+                    color: isEnabled ? "var(--text-muted)" : "var(--input)",
                     cursor: isEnabled ? "pointer" : "not-allowed",
                     textAlign: "left",
                     transition: "background 0.12s, color 0.12s",
@@ -97,14 +97,14 @@ export default function SessionSidebar() {
                   }}
                   onMouseEnter={(e) => {
                     if (isEnabled) {
-                      e.currentTarget.style.background = "#18181b";
-                      e.currentTarget.style.color = "#a1a1aa";
+                      e.currentTarget.style.background = "var(--card)";
+                      e.currentTarget.style.color = "var(--text-secondary)";
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (isEnabled) {
                       e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "#71717a";
+                      e.currentTarget.style.color = "var(--text-muted)";
                     }
                   }}
                 >
@@ -115,32 +115,32 @@ export default function SessionSidebar() {
             })}
           </div>
 
-          <div style={{ height: 1, background: "#1f1f23", flexShrink: 0, margin: "0 8px" }} />
+          <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 8px" }} />
 
           {/* Pinned section */}
           <div style={{ padding: "10px 14px 4px", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: "var(--input)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 고정됨
               </span>
               {I.pin}
             </div>
-            <p style={{ fontSize: 11, color: "#3f3f46", margin: "6px 0 0", lineHeight: 1.4 }}>
+            <p style={{ fontSize: 11, color: "var(--input)", margin: "6px 0 0", lineHeight: 1.4 }}>
               세션을 드래그하여 고정
             </p>
           </div>
 
-          <div style={{ height: 1, background: "#1f1f23", flexShrink: 0, margin: "8px 8px 0" }} />
+          <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "8px 8px 0" }} />
 
           {/* Recents */}
           <div style={{ padding: "10px 14px 4px", flexShrink: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--input)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               최근
             </span>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "2px 8px" }}>
             {sessions.length === 0 && (
-              <p style={{ fontSize: 11, color: "#3f3f46", textAlign: "center", padding: "16px 8px" }}>
+              <p style={{ fontSize: 11, color: "var(--input)", textAlign: "center", padding: "16px 8px" }}>
                 대화를 시작하세요
               </p>
             )}
@@ -158,7 +158,7 @@ export default function SessionSidebar() {
                     padding: "7px 8px",
                     marginBottom: 1,
                     cursor: "pointer",
-                    background: isActive ? "#18181b" : isHovered ? "#18181b" : "transparent",
+                    background: isActive ? "var(--card)" : isHovered ? "var(--card)" : "transparent",
                     transition: "background 0.1s",
                   }}
                   onClick={() => setActiveSession(session.id)}
@@ -169,7 +169,7 @@ export default function SessionSidebar() {
                     style={{
                       flex: 1,
                       fontSize: 13,
-                      color: isActive ? "#d4d4d8" : "#71717a",
+                      color: isActive ? "var(--foreground)" : "var(--text-muted)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -192,14 +192,14 @@ export default function SessionSidebar() {
                         border: "none",
                         padding: "2px",
                         cursor: "pointer",
-                        color: "#52525b",
+                        color: "var(--text-dim)",
                         display: "flex",
                         alignItems: "center",
                         borderRadius: 4,
                         transition: "color 0.1s",
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "#52525b")}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--destructive)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
                       title="삭제"
                     >
                       {I.trash}
@@ -214,13 +214,13 @@ export default function SessionSidebar() {
 
       {tab === "settings" && (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <p style={{ fontSize: 12, color: "#3f3f46" }}>설정 준비 중</p>
+          <p style={{ fontSize: 12, color: "var(--input)" }}>설정 준비 중</p>
         </div>
       )}
 
       {tab === "code" && (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <p style={{ fontSize: 12, color: "#3f3f46" }}>코드 보기 준비 중</p>
+          <p style={{ fontSize: 12, color: "var(--input)" }}>코드 보기 준비 중</p>
         </div>
       )}
 
@@ -228,7 +228,7 @@ export default function SessionSidebar() {
       <div
         style={{
           flexShrink: 0,
-          borderTop: "1px solid #1f1f23",
+          borderTop: "1px solid var(--surface-2)",
           padding: "10px 14px",
           display: "flex",
           alignItems: "center",
@@ -240,8 +240,8 @@ export default function SessionSidebar() {
             width: 26,
             height: 26,
             borderRadius: "50%",
-            background: "#1f1f23",
-            border: "1px solid #27272a",
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -250,7 +250,7 @@ export default function SessionSidebar() {
         >
           {I.user}
         </div>
-        <span style={{ fontSize: 12, color: "#52525b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 12, color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           사용자
         </span>
       </div>

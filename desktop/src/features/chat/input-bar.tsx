@@ -50,15 +50,15 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
     <div
       style={{
         padding: "12px 16px 16px",
-        background: "#09090b",
-        borderTop: "1px solid #1f1f23",
+        background: "var(--background)",
+        borderTop: "1px solid var(--surface-2)",
       }}
     >
       {/* Main input container */}
       <div
         style={{
-          background: "#18181b",
-          border: "1px solid #27272a",
+          background: "var(--card)",
+          border: "1px solid var(--border)",
           borderRadius: 12,
           padding: "10px 10px 8px",
           display: "flex",
@@ -90,7 +90,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               border: "none",
               outline: "none",
               resize: "none",
-              color: "#d4d4d8",
+              color: "var(--foreground)",
               fontSize: 14,
               lineHeight: 1.5,
               fontFamily: "inherit",
@@ -118,15 +118,15 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "#f87171",
+                background: "var(--destructive)",
                 border: "none",
                 borderRadius: 8,
                 cursor: "pointer",
-                color: "#fff",
+                color: "var(--destructive-foreground)",
                 transition: "background 0.15s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "#ef4444")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "#f87171")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in oklch, var(--destructive) 85%, black)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--destructive)")}
             >
               {I.stop}
             </button>
@@ -142,18 +142,18 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: canSend ? "#a78bfa" : "#27272a",
+                background: canSend ? "var(--primary)" : "var(--border)",
                 border: "none",
                 borderRadius: 8,
                 cursor: canSend ? "pointer" : "not-allowed",
-                color: canSend ? "#fff" : "#52525b",
+                color: canSend ? "var(--primary-foreground)" : "var(--text-dim)",
                 transition: "background 0.15s",
               }}
               onMouseEnter={(e) => {
-                if (canSend) e.currentTarget.style.background = "#7c3aed";
+                if (canSend) e.currentTarget.style.background = "color-mix(in oklch, var(--primary) 80%, black)";
               }}
               onMouseLeave={(e) => {
-                if (canSend) e.currentTarget.style.background = "#a78bfa";
+                if (canSend) e.currentTarget.style.background = "var(--primary)";
               }}
             >
               {I.send}
@@ -170,14 +170,14 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
             paddingLeft: 2,
           }}
         >
-          <span style={{ fontSize: 11, color: "#3f3f46" }}>
+          <span style={{ fontSize: 11, color: "var(--input)" }}>
             Enter로 전송 · Shift+Enter로 줄바꿈
           </span>
           {charCount > 0 && (
             <span
               style={{
                 fontSize: 11,
-                color: nearLimit ? "#f87171" : "#3f3f46",
+                color: nearLimit ? "var(--destructive)" : "var(--input)",
               }}
             >
               {charCount} / {MAX_CHARS}

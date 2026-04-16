@@ -125,7 +125,7 @@ export default function DocumentPanel({ onClose }: Props) {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "#0c0d10",
+        background: "var(--sidebar)",
         overflow: "hidden",
       }}
     >
@@ -137,12 +137,12 @@ export default function DocumentPanel({ onClose }: Props) {
           justifyContent: "space-between",
           padding: "12px 14px 10px",
           flexShrink: 0,
-          borderBottom: "1px solid #1f1f23",
+          borderBottom: "1px solid var(--surface-2)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           {I.folder}
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#d4d4d8" }}>문서 관리</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>문서 관리</span>
         </div>
         <Tb icon={I.x} tip="닫기" onClick={onClose} />
       </div>
@@ -152,8 +152,8 @@ export default function DocumentPanel({ onClose }: Props) {
         {folderProgress !== null ? (
           <div
             style={{
-              background: "#18181b",
-              border: "1px solid #27272a",
+              background: "var(--card)",
+              border: "1px solid var(--border)",
               borderRadius: 10,
               padding: "12px 14px",
             }}
@@ -171,7 +171,7 @@ export default function DocumentPanel({ onClose }: Props) {
                 <span
                   style={{
                     fontSize: 12,
-                    color: "#a1a1aa",
+                    color: "var(--text-secondary)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -195,7 +195,7 @@ export default function DocumentPanel({ onClose }: Props) {
               aria-valuemax={folderProgress.total}
               style={{
                 height: 3,
-                background: "#27272a",
+                background: "var(--border)",
                 borderRadius: 2,
                 overflow: "hidden",
               }}
@@ -204,7 +204,7 @@ export default function DocumentPanel({ onClose }: Props) {
                 style={{
                   height: "100%",
                   width: `${(folderProgress.done / folderProgress.total) * 100}%`,
-                  background: "#a78bfa",
+                  background: "var(--primary)",
                   borderRadius: 2,
                   transition: "width 0.3s ease",
                 }}
@@ -213,7 +213,7 @@ export default function DocumentPanel({ onClose }: Props) {
             {folderProgress.currentStatus && (
               <p
                 aria-live="polite"
-                style={{ fontSize: 11, color: "#71717a", marginTop: 5 }}
+                style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 5 }}
               >
                 {folderProgress.currentStatus}
               </p>
@@ -227,7 +227,7 @@ export default function DocumentPanel({ onClose }: Props) {
               onDragLeave={handleDragLeave}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: `1px dashed ${dragOver ? "#a78bfa" : "#27272a"}`,
+                border: `1px dashed ${dragOver ? "var(--primary)" : "var(--border)"}`,
                 borderRadius: 10,
                 padding: "16px 12px",
                 display: "flex",
@@ -235,24 +235,24 @@ export default function DocumentPanel({ onClose }: Props) {
                 alignItems: "center",
                 gap: 6,
                 cursor: "pointer",
-                background: dragOver ? "rgba(167,139,250,0.04)" : "transparent",
+                background: dragOver ? "color-mix(in oklch, var(--primary) 4%, transparent)" : "transparent",
                 transition: "border-color 0.15s, background 0.15s",
               }}
               onMouseEnter={(e) => {
                 if (!dragOver) {
-                  e.currentTarget.style.borderColor = "#3f3f46";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.01)";
+                  e.currentTarget.style.borderColor = "var(--input)";
+                  e.currentTarget.style.background = "color-mix(in oklch, white 1%, transparent)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!dragOver) {
-                  e.currentTarget.style.borderColor = "#27272a";
+                  e.currentTarget.style.borderColor = "var(--border)";
                   e.currentTarget.style.background = "transparent";
                 }
               }}
             >
-              <div style={{ color: "#52525b" }}>{I.upload}</div>
-              <p style={{ fontSize: 11, color: "#52525b", textAlign: "center", lineHeight: 1.4 }}>
+              <div style={{ color: "var(--text-dim)" }}>{I.upload}</div>
+              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", lineHeight: 1.4 }}>
                 PDF 드래그 또는 클릭하여 업로드
               </p>
             </div>
@@ -266,23 +266,23 @@ export default function DocumentPanel({ onClose }: Props) {
                 justifyContent: "center",
                 gap: 6,
                 background: "transparent",
-                border: "1px solid #27272a",
+                border: "1px solid var(--border)",
                 borderRadius: 8,
                 padding: "8px 10px",
-                color: "#a1a1aa",
+                color: "var(--text-secondary)",
                 fontSize: 11,
                 cursor: "pointer",
                 transition: "border-color 0.15s, background 0.15s, color 0.15s",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#a78bfa";
-                e.currentTarget.style.background = "rgba(167,139,250,0.04)";
-                e.currentTarget.style.color = "#d4d4d8";
+                e.currentTarget.style.borderColor = "var(--primary)";
+                e.currentTarget.style.background = "color-mix(in oklch, var(--primary) 4%, transparent)";
+                e.currentTarget.style.color = "var(--foreground)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#27272a";
+                e.currentTarget.style.borderColor = "var(--border)";
                 e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "#a1a1aa";
+                e.currentTarget.style.color = "var(--text-secondary)";
               }}
             >
               <span style={{ display: "flex" }}>{I.folder}</span>
@@ -314,7 +314,7 @@ export default function DocumentPanel({ onClose }: Props) {
         />
       </div>
 
-      <div style={{ height: 1, background: "#1f1f23", flexShrink: 0, margin: "0 10px" }} />
+      <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 10px" }} />
 
       {/* Documents folder tree */}
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}>
@@ -332,14 +332,14 @@ export default function DocumentPanel({ onClose }: Props) {
             marginBottom: 4,
           }}
         >
-          <span style={{ color: "#3f3f46", display: "flex" }}>
+          <span style={{ color: "var(--input)", display: "flex" }}>
             {expanded ? I.chevDown : I.chevRight}
           </span>
           <span
             style={{
               fontSize: 10,
               fontWeight: 600,
-              color: "#3f3f46",
+              color: "var(--input)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -351,7 +351,7 @@ export default function DocumentPanel({ onClose }: Props) {
         {expanded && (
           <>
             {documents.length === 0 ? (
-              <p style={{ fontSize: 11, color: "#3f3f46", textAlign: "center", padding: "12px 0" }}>
+              <p style={{ fontSize: 11, color: "var(--input)", textAlign: "center", padding: "12px 0" }}>
                 문서가 없습니다
               </p>
             ) : (
@@ -371,8 +371,8 @@ export default function DocumentPanel({ onClose }: Props) {
                         gap: 4,
                         padding: "5px 6px",
                         borderRadius: 7,
-                        border: isActive ? "1px solid #a78bfa" : "1px solid transparent",
-                        background: isActive ? "rgba(167,139,250,0.08)" : "transparent",
+                        border: isActive ? "1px solid var(--primary)" : "1px solid transparent",
+                        background: isActive ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent",
                         transition: "background 0.1s, border-color 0.1s",
                       }}
                     >
@@ -391,14 +391,14 @@ export default function DocumentPanel({ onClose }: Props) {
                           textAlign: "left",
                         }}
                       >
-                        <span style={{ color: "#52525b", display: "flex" }}>
+                        <span style={{ color: "var(--text-dim)", display: "flex" }}>
                           {open ? I.chevDown : I.chevRight}
                         </span>
-                        <span style={{ color: "#71717a", display: "flex" }}>{I.folder}</span>
+                        <span style={{ color: "var(--text-muted)", display: "flex" }}>{I.folder}</span>
                         <span
                           style={{
                             fontSize: 12,
-                            color: isActive ? "#d4d4d8" : "#a1a1aa",
+                            color: isActive ? "var(--foreground)" : "var(--text-secondary)",
                             fontWeight: isActive ? 600 : 500,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -409,7 +409,7 @@ export default function DocumentPanel({ onClose }: Props) {
                         >
                           {label}
                         </span>
-                        <span style={{ fontSize: 10, color: "#52525b", flexShrink: 0 }}>
+                        <span style={{ fontSize: 10, color: "var(--text-dim)", flexShrink: 0 }}>
                           {docs.length}
                         </span>
                       </button>
@@ -424,23 +424,23 @@ export default function DocumentPanel({ onClose }: Props) {
                             width: 22,
                             height: 22,
                             borderRadius: 5,
-                            background: isActive ? "#a78bfa" : "transparent",
-                            border: `1px solid ${isActive ? "#a78bfa" : "#3f3f46"}`,
-                            color: isActive ? "#0c0d10" : "#52525b",
+                            background: isActive ? "var(--primary)" : "transparent",
+                            border: `1px solid ${isActive ? "var(--primary)" : "var(--input)"}`,
+                            color: isActive ? "var(--sidebar)" : "var(--text-dim)",
                             cursor: "pointer",
                             flexShrink: 0,
                             transition: "background 0.1s, border-color 0.1s, color 0.1s",
                           }}
                           onMouseEnter={(e) => {
                             if (!isActive) {
-                              e.currentTarget.style.borderColor = "#a78bfa";
-                              e.currentTarget.style.color = "#a78bfa";
+                              e.currentTarget.style.borderColor = "var(--primary)";
+                              e.currentTarget.style.color = "var(--primary)";
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (!isActive) {
-                              e.currentTarget.style.borderColor = "#3f3f46";
-                              e.currentTarget.style.color = "#52525b";
+                              e.currentTarget.style.borderColor = "var(--input)";
+                              e.currentTarget.style.color = "var(--text-dim)";
                             }
                           }}
                         >
@@ -463,17 +463,17 @@ export default function DocumentPanel({ onClose }: Props) {
                             marginBottom: 1,
                             transition: "background 0.1s",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#18181b")}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--card)")}
                           onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         >
-                          <div style={{ color: "#52525b", marginTop: 1, flexShrink: 0 }}>
+                          <div style={{ color: "var(--text-dim)", marginTop: 1, flexShrink: 0 }}>
                             {I.file}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p
                               style={{
                                 fontSize: 12,
-                                color: "#a1a1aa",
+                                color: "var(--text-secondary)",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                                 whiteSpace: "nowrap",
@@ -483,7 +483,7 @@ export default function DocumentPanel({ onClose }: Props) {
                             >
                               {doc.filename}
                             </p>
-                            <p style={{ fontSize: 10, color: "#3f3f46" }}>
+                            <p style={{ fontSize: 10, color: "var(--input)" }}>
                               {doc.chunk_count}청크 · {formatDate(doc.ingested_at)}
                             </p>
                           </div>
@@ -502,17 +502,17 @@ export default function DocumentPanel({ onClose }: Props) {
         )}
       </div>
 
-      <div style={{ height: 1, background: "#1f1f23", flexShrink: 0, margin: "0 10px" }} />
+      <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 10px" }} />
 
       {/* Context section */}
       <div style={{ padding: "10px 14px", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={{ color: "#3f3f46" }}>{I.globe}</span>
+          <span style={{ color: "var(--input)" }}>{I.globe}</span>
           <span
             style={{
               fontSize: 10,
               fontWeight: 600,
-              color: "#3f3f46",
+              color: "var(--input)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -520,7 +520,7 @@ export default function DocumentPanel({ onClose }: Props) {
             컨텍스트
           </span>
         </div>
-        <p style={{ fontSize: 11, color: "#3f3f46", lineHeight: 1.5 }}>
+        <p style={{ fontSize: 11, color: "var(--input)", lineHeight: 1.5 }}>
           {activeFolder
             ? `'${activeFolder}' 폴더 문서만 검색에 사용됩니다.`
             : "업로드된 문서가 RAG 검색에 자동으로 사용됩니다."}

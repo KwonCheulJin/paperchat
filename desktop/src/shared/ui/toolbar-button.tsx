@@ -19,12 +19,12 @@ export function ToolbarButton({ icon, tip, onClick, act, activeColor, disabled }
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered && !disabled ? "rgba(255,255,255,0.06)" : "transparent",
+        background: hovered && !disabled ? "color-mix(in oklch, white 6%, transparent)" : "transparent",
         border: "none",
         borderRadius: 5,
         padding: "3px 5px",
         cursor: disabled ? "not-allowed" : "pointer",
-        color: disabled ? "#3f3f46" : act ? (activeColor ?? "#a78bfa") : hovered ? "#a1a1aa" : "#52525b",
+        color: disabled ? "var(--input)" : act ? (activeColor ?? "var(--primary)") : hovered ? "var(--text-secondary)" : "var(--text-dim)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

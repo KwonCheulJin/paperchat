@@ -22,13 +22,13 @@ export default function ThinkingIndicator() {
               width: 6,
               height: 6,
               borderRadius: "50%",
-              background: "#52525b",
+              background: "var(--text-dim)",
               animation: `tp 1.2s ease-in-out ${i * 0.2}s infinite`,
             }}
           />
         ))}
       </div>
-      <span style={{ color: "#52525b", fontSize: 12, animation: "fi 0.4s ease" }}>
+      <span style={{ color: "var(--text-dim)", fontSize: 12, animation: "fi 0.4s ease" }}>
         {LABELS[labelIdx]}
       </span>
     </div>

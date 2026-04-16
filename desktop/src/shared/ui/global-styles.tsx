@@ -29,8 +29,8 @@ export function GlobalStyles() {
       }
       ::-webkit-scrollbar { width: 4px; height: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
-      ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--input); }
     `}</style>
   );
 }

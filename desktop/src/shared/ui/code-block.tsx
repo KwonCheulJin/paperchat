@@ -138,11 +138,11 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
   return (
     <div
       style={{
-        background: "#18181b",
+        background: "var(--card)",
         borderRadius: 10,
         margin: "10px 0",
         overflow: "hidden",
-        border: "1px solid #27272a",
+        border: "1px solid var(--border)",
       }}
     >
       <div
@@ -151,13 +151,13 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
           justifyContent: "space-between",
           alignItems: "center",
           padding: "5px 10px",
-          background: "#1f1f23",
-          borderBottom: collapsed ? "none" : "1px solid #27272a",
+          background: "var(--surface-2)",
+          borderBottom: collapsed ? "none" : "1px solid var(--border)",
         }}
       >
         <span
           style={{
-            color: "#71717a",
+            color: "var(--text-muted)",
             fontSize: 11,
             fontWeight: 600,
             fontFamily: "monospace",
@@ -178,7 +178,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
             icon={copied ? I.check : I.copy}
             tip={copied ? "복사됨" : "복사"}
             act={copied}
-            activeColor="#4ade80"
+            activeColor="var(--success)"
             onClick={handleCopy}
           />
         </div>

@@ -36,22 +36,22 @@ export default function ProfileSelector() {
           alignItems: "center",
           gap: 5,
           background: "transparent",
-          border: "1px solid #27272a",
+          border: "1px solid var(--border)",
           borderRadius: 6,
           padding: "4px 8px",
           fontSize: 12,
-          color: "#71717a",
+          color: "var(--text-muted)",
           cursor: "pointer",
           transition: "color 0.15s, border-color 0.15s",
           whiteSpace: "nowrap",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = "#a1a1aa";
-          e.currentTarget.style.borderColor = "#3f3f46";
+          e.currentTarget.style.color = "var(--text-secondary)";
+          e.currentTarget.style.borderColor = "var(--input)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.color = "#71717a";
-          e.currentTarget.style.borderColor = "#27272a";
+          e.currentTarget.style.color = "var(--text-muted)";
+          e.currentTarget.style.borderColor = "var(--border)";
         }}
       >
         <span>{current.label}</span>
@@ -64,8 +64,8 @@ export default function ProfileSelector() {
             position: "absolute",
             bottom: "calc(100% + 6px)",
             right: 0,
-            background: "#18181b",
-            border: "1px solid #27272a",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             borderRadius: 8,
             padding: "4px",
             minWidth: 160,
@@ -85,25 +85,25 @@ export default function ProfileSelector() {
                 display: "block",
                 width: "100%",
                 textAlign: "left",
-                background: p.value === profile ? "#1f1f23" : "transparent",
+                background: p.value === profile ? "var(--surface-2)" : "transparent",
                 border: "none",
                 borderRadius: 6,
                 padding: "7px 10px",
                 fontSize: 12,
-                color: p.value === profile ? "#d4d4d8" : "#71717a",
+                color: p.value === profile ? "var(--foreground)" : "var(--text-muted)",
                 cursor: "pointer",
                 transition: "background 0.1s, color 0.1s",
               }}
               onMouseEnter={(e) => {
                 if (p.value !== profile) {
-                  e.currentTarget.style.background = "#1f1f23";
-                  e.currentTarget.style.color = "#a1a1aa";
+                  e.currentTarget.style.background = "var(--surface-2)";
+                  e.currentTarget.style.color = "var(--text-secondary)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (p.value !== profile) {
                   e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#71717a";
+                  e.currentTarget.style.color = "var(--text-muted)";
                 }
               }}
             >
