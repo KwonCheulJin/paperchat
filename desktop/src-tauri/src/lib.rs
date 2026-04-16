@@ -680,21 +680,30 @@ pub fn run() {
                     let _ = window.set_focus();
                 }
 
-                // 모델 상태 이벤트 발송 (프론트가 SetupScreen/ChatPage 전환에 사용)
-                let has_model = resolve_model(&data_dir).is_some();
-                log_info!("모델 상태: has_model={}", has_model);
+                // 모델이 있으면 창 표시 직후 llama-server를 즉시 기동 (React 로딩 동안 병렬 시작)
+                let model_info = resolve_model(&data_dir);
+                let has_model = model_info.is_some();
+                if let Some((ref model_path, n_gpu_layers)) = model_info {
+                    log_info!("모델 발견: {} (n_gpu_layers={})", model_path.display(), n_gpu_layers);
+                    match launch_llama_server(model_path, n_gpu_layers) {
+                        Ok(()) => log_info!("llama-server 시작 완료"),
+                        Err(e) => log_error!("llama-server 시작 실패: {}", e),
+                    }
+                }
 
+                // React(webview)가 로드되어 이벤트 리스너를 등록할 때까지 대기
+                // 창 표시 직후 이벤트를 발송하면 리스너 등록 전에 유실됨
+                // llama-server가 이 2초 동안 기동을 완료할 수 있음
+                std::thread::sleep(std::time::Duration::from_secs(2));
+
+                // 모델 상태 이벤트 발송
+                log_info!("모델 상태: has_model={}", has_model);
                 if let Some(window) = app_handle.get_webview_window("main") {
                     window.emit("model_status", serde_json::json!({ "has_model": has_model })).ok();
                 }
 
-                // 모델이 있으면 llama-server 시작 → 준비되면 llama_ready 이벤트
-                if let Some((model_path, n_gpu_layers)) = resolve_model(&data_dir) {
-                    log_info!("모델 발견: {} (n_gpu_layers={})", model_path.display(), n_gpu_layers);
-                    match launch_llama_server(&model_path, n_gpu_layers) {
-                        Ok(()) => log_info!("llama-server 시작 완료"),
-                        Err(e) => log_error!("llama-server 시작 실패: {}", e),
-                    }
+                // 모델이 있으면 llama-server 준비 대기 → llama_ready 이벤트
+                if model_info.is_some() {
                     if wait_for_port(LLAMA_PORT, 120) {
                         log_info!("llama-server 포트 {} 준비 완료", LLAMA_PORT);
                     } else {
