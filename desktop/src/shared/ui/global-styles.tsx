@@ -18,10 +18,6 @@ export function GlobalStyles() {
         from { opacity: 0; }
         to   { opacity: 1; }
       }
-      @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50%       { transform: translateY(-6px); }
-      }
       @keyframes indeterminate {
         0%   { transform: translateX(-100%); }
         100% { transform: translateX(400%); }
