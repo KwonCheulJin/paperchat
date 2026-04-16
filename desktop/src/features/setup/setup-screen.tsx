@@ -101,10 +101,11 @@ export default function SetupScreen() {
           {/* 모델 선택 */}
           {!isInitializing && !isStartingLlm && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
+              <label htmlFor="model-select" style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
                 모델 선택
               </label>
               <select
+                id="model-select"
                 value={selectedModel?.filename ?? ""}
                 onChange={(e) => {
                   const model = allModels.find((m) => m.filename === e.target.value);

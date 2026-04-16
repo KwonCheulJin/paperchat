@@ -13,7 +13,11 @@ export default function ThinkingIndicator() {
   }, []);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
+    <div
+      role="status"
+      aria-label="AI 응답 생성 중"
+      style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}
+    >
       <div style={{ display: "flex", gap: 4 }}>
         {[0, 1, 2].map((i) => (
           <div

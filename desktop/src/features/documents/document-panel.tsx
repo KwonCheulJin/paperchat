@@ -222,6 +222,15 @@ export default function DocumentPanel({ onClose }: Props) {
         ) : (
           <>
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="PDF 파일 업로드. 클릭하거나 파일을 드래그하세요"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}

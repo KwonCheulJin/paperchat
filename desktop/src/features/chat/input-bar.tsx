@@ -88,7 +88,6 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               flex: 1,
               background: "transparent",
               border: "none",
-              outline: "none",
               resize: "none",
               color: "var(--foreground)",
               fontSize: 14,

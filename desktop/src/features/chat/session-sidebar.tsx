@@ -150,37 +150,51 @@ export default function SessionSidebar() {
               return (
                 <div
                   key={session.id}
+                  role="listitem"
                   style={{
                     position: "relative",
-                    display: "flex",
-                    alignItems: "center",
                     borderRadius: 7,
-                    padding: "7px 8px",
                     marginBottom: 1,
-                    cursor: "pointer",
-                    background: isActive ? "var(--card)" : isHovered ? "var(--card)" : "transparent",
+                    background: isActive || isHovered ? "var(--card)" : "transparent",
                     transition: "background 0.1s",
                   }}
-                  onClick={() => setActiveSession(session.id)}
                   onMouseEnter={() => setHoveredId(session.id)}
                   onMouseLeave={() => setHoveredId(null)}
                 >
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => setActiveSession(session.id)}
+                    aria-current={isActive ? "true" : undefined}
                     style={{
-                      flex: 1,
-                      fontSize: 13,
-                      color: isActive ? "var(--foreground)" : "var(--text-muted)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      paddingRight: isHovered ? 22 : 0,
-                      transition: "color 0.1s",
+                      display: "flex",
+                      alignItems: "center",
+                      width: "100%",
+                      background: "transparent",
+                      border: "none",
+                      padding: "7px 8px",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      textAlign: "left",
                     }}
                   >
-                    {session.title}
-                  </span>
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: 13,
+                        color: isActive ? "var(--foreground)" : "var(--text-muted)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        paddingRight: isHovered ? 22 : 0,
+                        transition: "color 0.1s",
+                      }}
+                    >
+                      {session.title}
+                    </span>
+                  </button>
                   {isHovered && (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteSession(session.id);
@@ -188,6 +202,8 @@ export default function SessionSidebar() {
                       style={{
                         position: "absolute",
                         right: 6,
+                        top: "50%",
+                        transform: "translateY(-50%)",
                         background: "transparent",
                         border: "none",
                         padding: "2px",
@@ -201,6 +217,7 @@ export default function SessionSidebar() {
                       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--destructive)")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
                       title="삭제"
+                      aria-label="세션 삭제"
                     >
                       {I.trash}
                     </button>

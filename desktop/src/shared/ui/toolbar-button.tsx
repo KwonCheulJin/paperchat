@@ -15,6 +15,7 @@ export function ToolbarButton({ icon, tip, onClick, act, activeColor, disabled }
     <button
       onClick={onClick}
       title={tip}
+      aria-label={tip}
       disabled={disabled}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

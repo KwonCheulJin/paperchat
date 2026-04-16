@@ -166,12 +166,12 @@ export function parseMarkdown(text: string): React.ReactNode[] {
         <div
           key={k++}
           style={{
-            borderLeft: "3px solid var(--text-dim)",
             margin: "10px 0",
             color: "var(--text-secondary)",
-            background: "color-mix(in oklch, white 2%, transparent)",
+            background: "color-mix(in oklch, var(--primary) 5%, var(--card))",
             padding: "10px 14px",
-            borderRadius: "0 8px 8px 0",
+            borderRadius: 8,
+            border: "1px solid color-mix(in oklch, var(--primary) 15%, var(--border))",
           }}
         >
           {ql.map((q, qi) => (

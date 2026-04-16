@@ -26,6 +26,11 @@ export function GlobalStyles() {
         0%   { transform: translateX(-100%); }
         100% { transform: translateX(400%); }
       }
+      :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
       ::-webkit-scrollbar { width: 4px; height: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
