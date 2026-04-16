@@ -2,7 +2,6 @@ export function GlobalStyles() {
   return (
     <style>{`
       * { box-sizing: border-box; }
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
       @keyframes tp {
         0%, 100% { transform: translateY(0); opacity: 0.4; }
         50% { transform: translateY(-4px); opacity: 1; }
