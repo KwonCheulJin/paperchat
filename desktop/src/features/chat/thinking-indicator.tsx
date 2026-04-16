@@ -12,22 +12,26 @@ export default function ThinkingIndicator() {
     return () => clearInterval(timer);
   }, []);
 
+  const BAR_HEIGHTS = [8, 13, 10];
+
   return (
     <div
       role="status"
       aria-label="AI 응답 생성 중"
       style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}
     >
-      <div style={{ display: "flex", gap: 4 }}>
-        {[0, 1, 2].map((i) => (
+      {/* 수직 바 인디케이터 — transform/opacity 기반, 레이아웃 변경 없음 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+        {BAR_HEIGHTS.map((h, i) => (
           <div
             key={i}
             style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "var(--text-dim)",
-              animation: `tp 1.2s ease-in-out ${i * 0.2}s infinite`,
+              width: 2,
+              height: h,
+              borderRadius: 1,
+              background: "var(--primary)",
+              transformOrigin: "center",
+              animation: `bar 1.4s cubic-bezier(0.4, 0, 0.6, 1) ${i * 0.18}s infinite`,
             }}
           />
         ))}

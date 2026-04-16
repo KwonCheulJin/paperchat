@@ -26,6 +26,14 @@ export function GlobalStyles() {
         0%   { transform: translateX(-100%); }
         100% { transform: translateX(400%); }
       }
+      @keyframes bar {
+        0%, 100% { opacity: 0.2; transform: scaleY(0.4); }
+        50%       { opacity: 1;   transform: scaleY(1);   }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.3; }
+        50%       { opacity: 0.7; }
+      }
       :focus-visible {
         outline: 2px solid var(--ring);
         outline-offset: 2px;
