@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import { parseMarkdown } from "../../shared/ui/markdown";
@@ -117,6 +117,11 @@ export default function ChatMessage({
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
+
+  const parsedContent = useMemo(
+    () => message.content ? parseMarkdown(message.content) : null,
+    [message.content]
+  );
 
   const handleCopy = () => {
     onCopy(message.content);
@@ -271,7 +276,7 @@ export default function ChatMessage({
       {/* Content */}
       {message.content && (
         <div style={{ fontSize: 14, color: "var(--foreground)", lineHeight: 1.7 }}>
-          {parseMarkdown(message.content)}
+          {parsedContent}
           {isStreaming && (
             <span style={{ animation: "cb 1s step-end infinite", color: "var(--primary)", marginLeft: 1 }}>
               ▋

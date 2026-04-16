@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Tb } from "./toolbar-button";
 import { I } from "./icons";
 
@@ -128,6 +128,8 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
   const [collapsed, setCollapsed] = useState(false);
   const lineCount = code.split("\n").length;
 
+  const highlighted = useMemo(() => hlCode(code), [code]);
+
   const handleCopy = () => {
     navigator.clipboard.writeText(code).then(() => {
       setCopied(true);
@@ -195,7 +197,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
             maxHeight: 380,
           }}
         >
-          <code>{hlCode(code)}</code>
+          <code>{highlighted}</code>
         </pre>
       )}
     </div>
