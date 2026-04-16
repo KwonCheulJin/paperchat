@@ -241,7 +241,7 @@ export default function DocumentPanel({ onClose }: Props) {
               onMouseEnter={(e) => {
                 if (!dragOver) {
                   e.currentTarget.style.borderColor = "var(--input)";
-                  e.currentTarget.style.background = "color-mix(in oklch, white 1%, transparent)";
+                  e.currentTarget.style.background = "transparent";
                 }
               }}
               onMouseLeave={(e) => {
@@ -426,7 +426,7 @@ export default function DocumentPanel({ onClose }: Props) {
                             borderRadius: 5,
                             background: isActive ? "var(--primary)" : "transparent",
                             border: `1px solid ${isActive ? "var(--primary)" : "var(--input)"}`,
-                            color: isActive ? "var(--sidebar)" : "var(--text-dim)",
+                            color: isActive ? "var(--primary-foreground)" : "var(--text-dim)",
                             cursor: "pointer",
                             flexShrink: 0,
                             transition: "background 0.1s, border-color 0.1s, color 0.1s",
