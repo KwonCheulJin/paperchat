@@ -79,7 +79,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             alignItems: "center",
             justifyContent: "center",
             fontSize: 28,
-            color: "var(--input)",
+            color: "var(--text-dim)",
             animation: "float 3s ease-in-out infinite",
           }}
         >

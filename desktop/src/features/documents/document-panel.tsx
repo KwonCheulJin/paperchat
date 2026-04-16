@@ -183,7 +183,7 @@ export default function DocumentPanel({ onClose }: Props) {
                 </span>
               </div>
               {folderProgress.failed > 0 && (
-                <span style={{ fontSize: 11, color: "#f59e0b", flexShrink: 0, marginLeft: 8 }}>
+                <span style={{ fontSize: 11, color: "var(--warning)", flexShrink: 0, marginLeft: 8 }}>
                   ⚠ {folderProgress.failed}
                 </span>
               )}
@@ -332,14 +332,14 @@ export default function DocumentPanel({ onClose }: Props) {
             marginBottom: 4,
           }}
         >
-          <span style={{ color: "var(--input)", display: "flex" }}>
+          <span style={{ color: "var(--text-dim)", display: "flex" }}>
             {expanded ? I.chevDown : I.chevRight}
           </span>
           <span
             style={{
               fontSize: 10,
               fontWeight: 600,
-              color: "var(--input)",
+              color: "var(--text-dim)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -351,7 +351,7 @@ export default function DocumentPanel({ onClose }: Props) {
         {expanded && (
           <>
             {documents.length === 0 ? (
-              <p style={{ fontSize: 11, color: "var(--input)", textAlign: "center", padding: "12px 0" }}>
+              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "12px 0" }}>
                 문서가 없습니다
               </p>
             ) : (
@@ -483,7 +483,7 @@ export default function DocumentPanel({ onClose }: Props) {
                             >
                               {doc.filename}
                             </p>
-                            <p style={{ fontSize: 10, color: "var(--input)" }}>
+                            <p style={{ fontSize: 10, color: "var(--text-dim)" }}>
                               {doc.chunk_count}청크 · {formatDate(doc.ingested_at)}
                             </p>
                           </div>
@@ -507,12 +507,12 @@ export default function DocumentPanel({ onClose }: Props) {
       {/* Context section */}
       <div style={{ padding: "10px 14px", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={{ color: "var(--input)" }}>{I.globe}</span>
+          <span style={{ color: "var(--text-dim)" }}>{I.globe}</span>
           <span
             style={{
               fontSize: 10,
               fontWeight: 600,
-              color: "var(--input)",
+              color: "var(--text-dim)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -520,7 +520,7 @@ export default function DocumentPanel({ onClose }: Props) {
             컨텍스트
           </span>
         </div>
-        <p style={{ fontSize: 11, color: "var(--input)", lineHeight: 1.5 }}>
+        <p style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>
           {activeFolder
             ? `'${activeFolder}' 폴더 문서만 검색에 사용됩니다.`
             : "업로드된 문서가 RAG 검색에 자동으로 사용됩니다."}

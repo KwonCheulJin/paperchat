@@ -87,6 +87,7 @@
     --text-muted: oklch(0.52 0.012 280);        /* #71717a */
     --text-secondary: oklch(0.69 0.01 280);     /* #a1a1aa */
     --success: oklch(0.79 0.18 149);            /* #4ade80 */
+    --warning: oklch(0.72 0.17 75);             /* #f59e0b amber */
     --tracking-normal: 0em;
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);

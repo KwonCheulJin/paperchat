@@ -89,7 +89,7 @@ export default function SessionSidebar() {
                     borderRadius: 7,
                     padding: "7px 8px",
                     fontSize: 13,
-                    color: isEnabled ? "var(--text-muted)" : "var(--input)",
+                    color: isEnabled ? "var(--text-muted)" : "var(--text-dim)",
                     cursor: isEnabled ? "pointer" : "not-allowed",
                     textAlign: "left",
                     transition: "background 0.12s, color 0.12s",
@@ -120,12 +120,12 @@ export default function SessionSidebar() {
           {/* Pinned section */}
           <div style={{ padding: "10px 14px 4px", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: "var(--input)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 고정됨
               </span>
               {I.pin}
             </div>
-            <p style={{ fontSize: 11, color: "var(--input)", margin: "6px 0 0", lineHeight: 1.4 }}>
+            <p style={{ fontSize: 11, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.4 }}>
               세션을 드래그하여 고정
             </p>
           </div>
@@ -134,13 +134,13 @@ export default function SessionSidebar() {
 
           {/* Recents */}
           <div style={{ padding: "10px 14px 4px", flexShrink: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--input)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               최근
             </span>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "2px 8px" }}>
             {sessions.length === 0 && (
-              <p style={{ fontSize: 11, color: "var(--input)", textAlign: "center", padding: "16px 8px" }}>
+              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "16px 8px" }}>
                 대화를 시작하세요
               </p>
             )}
@@ -214,13 +214,13 @@ export default function SessionSidebar() {
 
       {tab === "settings" && (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <p style={{ fontSize: 12, color: "var(--input)" }}>설정 준비 중</p>
+          <p style={{ fontSize: 12, color: "var(--text-dim)" }}>설정 준비 중</p>
         </div>
       )}
 
       {tab === "code" && (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <p style={{ fontSize: 12, color: "var(--input)" }}>코드 보기 준비 중</p>
+          <p style={{ fontSize: 12, color: "var(--text-dim)" }}>코드 보기 준비 중</p>
         </div>
       )}
 

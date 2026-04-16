@@ -68,7 +68,7 @@ export default function ChatPage() {
                 activeColor="var(--primary)"
               />
               <span style={{ fontSize: 13, color: "var(--text-dim)" }}>paperchat</span>
-              <span style={{ fontSize: 13, color: "var(--input)" }}>/</span>
+              <span style={{ fontSize: 13, color: "var(--text-dim)" }}>/</span>
               <span
                 style={{
                   fontSize: 13,

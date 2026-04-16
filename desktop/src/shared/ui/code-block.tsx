@@ -101,7 +101,7 @@ export function hlCode(code: string): React.ReactNode[] {
       <div key={li} style={{ display: "flex", minHeight: "1.5em" }}>
         <span
           style={{
-            color: "#4a4a52",
+            color: "var(--text-dim)",
             userSelect: "none",
             width: 36,
             textAlign: "right",
