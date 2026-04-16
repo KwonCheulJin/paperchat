@@ -52,6 +52,23 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
   speedMbps: 0,
 
   initListeners: () => {
+    // starting_llm 상태에서 llama_ready를 놓쳤을 때 대비: 2초 간격 폴링
+    const startLlamaPolling = () => {
+      const interval = setInterval(async () => {
+        if (get().appStatus !== "starting_llm") {
+          clearInterval(interval);
+          return;
+        }
+        try {
+          const s = await invoke<{ llama_running: boolean }>("get_model_status");
+          if (s.llama_running) {
+            set({ appStatus: "ready" });
+            clearInterval(interval);
+          }
+        } catch { /* 무시 */ }
+      }, 2000);
+    };
+
     // model_status 이벤트: 모델 유무 판단
     // llama_ready가 리스너 등록 전에 발송됐을 수 있으므로 llama_running도 즉시 확인
     listen<{ has_model: boolean }>("model_status", async ({ payload }) => {
@@ -62,9 +79,11 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
             set({ appStatus: "ready" });
           } else {
             set({ appStatus: "starting_llm" });
+            startLlamaPolling();
           }
         } catch {
           set({ appStatus: "starting_llm" });
+          startLlamaPolling();
         }
       } else {
         get().fetchModelStatus();
@@ -87,6 +106,7 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
     // download_done 이벤트: llama-server 초기화 대기 상태로 전환
     listen("download_done", () => {
       set({ appStatus: "starting_llm" });
+      startLlamaPolling();
     });
 
     // download_error 이벤트
@@ -117,8 +137,9 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
       if (result.llama_running) {
         set({ appStatus: "ready" });
       } else if (result.has_model) {
-        // 모델 있음, llama-server 아직 시작 중 → llama_ready 이벤트 대기
+        // 모델 있음, llama-server 아직 시작 중 → 폴링으로 감지
         set({ appStatus: "starting_llm" });
+        startLlamaPolling();
       } else {
         set({
           appStatus: "needs_model",
@@ -147,6 +168,8 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
       if (result.llama_running) {
         set({ appStatus: "ready" });
       } else if (result.has_model) {
+        // fetchModelStatus는 initListeners 이후에만 호출되므로 폴링은 별도로 하지 않음
+        // (initListeners의 model_status 리스너가 폴링을 시작함)
         set({ appStatus: "starting_llm" });
       } else {
         set({
