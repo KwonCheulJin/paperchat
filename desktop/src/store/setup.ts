@@ -53,9 +53,19 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
 
   initListeners: () => {
     // model_status 이벤트: 모델 유무 판단
-    listen<{ has_model: boolean }>("model_status", ({ payload }) => {
+    // llama_ready가 리스너 등록 전에 발송됐을 수 있으므로 llama_running도 즉시 확인
+    listen<{ has_model: boolean }>("model_status", async ({ payload }) => {
       if (payload.has_model) {
-        set({ appStatus: "starting_llm" });
+        try {
+          const status = await invoke<{ llama_running: boolean }>("get_model_status");
+          if (status.llama_running) {
+            set({ appStatus: "ready" });
+          } else {
+            set({ appStatus: "starting_llm" });
+          }
+        } catch {
+          set({ appStatus: "starting_llm" });
+        }
       } else {
         get().fetchModelStatus();
       }
@@ -100,8 +110,9 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
       all_models: ModelInfo[];
       recommended: ModelInfo;
     }>("get_model_status").then((result) => {
-      // 이벤트를 이미 받은 경우(appStatus가 initializing이 아닌 경우)는 건드리지 않는다.
-      if (get().appStatus !== "initializing") return;
+      // starting_llm에서 llama_ready를 놓친 경우도 보정한다.
+      const currentStatus = get().appStatus;
+      if (currentStatus !== "initializing" && currentStatus !== "starting_llm") return;
 
       if (result.llama_running) {
         set({ appStatus: "ready" });
@@ -125,6 +136,7 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
     try {
       const result = await invoke<{
         has_model: boolean;
+        llama_running: boolean;
         ram_gb: number;
         gpu_name: string;
         vram_gb: number;
@@ -132,7 +144,9 @@ export const useSetupStore = create<SetupStore>((set, get) => ({
         all_models: ModelInfo[];
       }>("get_model_status");
 
-      if (result.has_model) {
+      if (result.llama_running) {
+        set({ appStatus: "ready" });
+      } else if (result.has_model) {
         set({ appStatus: "starting_llm" });
       } else {
         set({
