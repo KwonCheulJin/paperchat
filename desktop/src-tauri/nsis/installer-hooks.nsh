@@ -2,21 +2,10 @@
 
 ; ── 공통 프로세스 종료 매크로 ─────────────────────────────────────────────
 !macro KillPaperchatProcesses
-  ; 메인 앱 먼저 종료 (sidecar 재기동 방지)
-  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "paperchat.exe" /T'
-  Sleep 500
-  ; sidecar 프로세스 종료
-  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "backend.exe" /T'
-  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "llama-server.exe" /T'
-  ; 프로세스가 실제로 사라질 때까지 최대 15초 대기 (파일 핸들 해제 보장)
-  nsExec::ExecToLog 'powershell -NoProfile -Command "\
-    $names = @(\"backend\",\"llama-server\"); \
-    $deadline = (Get-Date).AddSeconds(15); \
-    while ((Get-Date) -lt $deadline) { \
-      $running = $names | Where-Object { Get-Process -Name $_ -ErrorAction SilentlyContinue }; \
-      if (-not $running) { break }; \
-      Start-Sleep -Milliseconds 500 \
-    }"'
+  ; 1차: 모든 관련 프로세스 강제 종료
+  nsExec::ExecToLog 'powershell.exe -NoProfile -Command "Stop-Process -Name paperchat,backend,llama-server -Force -ErrorAction SilentlyContinue"'
+  ; 2차: backend 종료 완료까지 최대 10초 폴링 (파일 핸들 해제 보장)
+  nsExec::ExecToLog 'powershell.exe -NoProfile -Command "$i=0; while((Get-Process -Name backend -ErrorAction SilentlyContinue) -and ($i++ -lt 20)){Start-Sleep -Milliseconds 500}"'
 !macroend
 
 ; ── 초기화 훅: 설치/재설치 시작 전 프로세스 종료 (.onInit에서 호출) ──────
