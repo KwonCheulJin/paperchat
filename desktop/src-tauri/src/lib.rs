@@ -244,6 +244,35 @@ fn wait_for_port(port: u16, max_secs: u64) -> bool {
     false
 }
 
+/// llama-server /health 엔드포인트가 {"status":"ok"}를 반환할 때까지 대기
+/// wait_for_port로 TCP 포트를 확인한 뒤 HTTP 레벨에서 모델 로딩 완료를 확인한다.
+fn wait_for_llama_ready(port: u16, max_secs: u64) -> bool {
+    // 1단계: TCP 포트 오픈 대기
+    if !wait_for_port(port, max_secs) {
+        return false;
+    }
+    // 2단계: HTTP /health 폴링 (모델 로딩 완료 확인)
+    let url = format!("http://127.0.0.1:{}/health", port);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(max_secs);
+    loop {
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        match reqwest::blocking::get(&url) {
+            Ok(resp) if resp.status().is_success() => {
+                if let Ok(body) = resp.text() {
+                    if body.contains("\"ok\"") || body.contains("200") {
+                        return true;
+                    }
+                }
+                return true; // 200 OK면 준비 완료로 간주
+            }
+            _ => {}
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
+
 /// 인스톨러가 저장한 config 구조체
 #[derive(serde::Deserialize)]
 struct InstallerConfig {
@@ -668,7 +697,7 @@ mod commands {
 
         match crate::launch_llama_server(model_path, n_gpu_layers) {
             Ok(()) => {
-                if crate::wait_for_port(crate::LLAMA_PORT, 120) {
+                if crate::wait_for_llama_ready(crate::LLAMA_PORT, 120) {
                     window.emit("llama_ready", true).ok();
                 } else {
                     window.emit("download_error", "llama-server 시작 대기 시간 초과 (120s)").ok();
@@ -762,8 +791,9 @@ pub fn run() {
 
                 // 모델이 있으면 llama-server 준비 대기 → llama_ready 이벤트
                 if model_info.is_some() {
-                    if wait_for_port(LLAMA_PORT, 120) {
-                        log_info!("llama-server 포트 {} 준비 완료", LLAMA_PORT);
+                    // HTTP /health까지 확인해야 모델 로딩 완료가 보장됨
+                    if wait_for_llama_ready(LLAMA_PORT, 120) {
+                        log_info!("llama-server 포트 {} HTTP 준비 완료", LLAMA_PORT);
                     } else {
                         log_error!("llama-server 포트 {} 대기 시간 초과 (120s)", LLAMA_PORT);
                     }

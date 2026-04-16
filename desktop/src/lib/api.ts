@@ -63,12 +63,26 @@ export async function* chatStream(
   signal?: AbortSignal,  // 중지 신호
 ): AsyncGenerator<SseEvent> {
   try {
-    const res = await fetch(`${BASE}/chat/stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, profile, session_id: sessionId, folder }),
-      signal,  // fetch에 중지 신호 전달
+    // 연결 타임아웃 60초: llama-server 무응답 시 무한 대기 방지
+    const timeoutController = new AbortController();
+    const timeoutTimer = setTimeout(() => timeoutController.abort(), 60_000);
+    // 사용자 중지(signal) 시 타임아웃도 같이 취소
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timeoutTimer);
+      timeoutController.abort();
     });
+
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/chat/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages, profile, session_id: sessionId, folder }),
+        signal: timeoutController.signal,  // 항상 타임아웃 신호 사용
+      });
+    } finally {
+      clearTimeout(timeoutTimer);
+    }
 
     if (!res.ok) {
       yield { type: "error", message: `HTTP ${res.status}: ${res.statusText}` };
