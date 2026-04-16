@@ -34,6 +34,9 @@ desktop/src-tauri/binaries/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 
+# Git worktrees
+.worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
