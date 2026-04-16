@@ -196,7 +196,6 @@ export default function ChatMessage({
                   fontSize: 14,
                   lineHeight: 1.6,
                   resize: "none",
-                  outline: "none",
                   boxSizing: "border-box",
                 }}
               />

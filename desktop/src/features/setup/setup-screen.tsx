@@ -121,7 +121,6 @@ export default function SetupScreen() {
                   fontSize: 13,
                   color: "var(--foreground)",
                   cursor: isDownloading ? "not-allowed" : "pointer",
-                  outline: "none",
                   opacity: isDownloading ? 0.5 : 1,
                 }}
               >

@@ -169,7 +169,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
             paddingLeft: 2,
           }}
         >
-          <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
             Enter로 전송 · Shift+Enter로 줄바꿈
           </span>
           {charCount > 0 && (

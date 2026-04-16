@@ -162,7 +162,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
             color: "var(--text-muted)",
             fontSize: 11,
             fontWeight: 600,
-            fontFamily: "monospace",
+            fontFamily: '"ui-monospace", "Cascadia Code", "Consolas", monospace',
             textTransform: "uppercase",
           }}
         >
@@ -193,7 +193,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
             overflow: "auto",
             fontSize: 13,
             lineHeight: 1.5,
-            fontFamily: "monospace",
+            fontFamily: '"ui-monospace", "Cascadia Code", "Consolas", monospace',
             maxHeight: 380,
           }}
         >
