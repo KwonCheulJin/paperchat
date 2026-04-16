@@ -138,7 +138,7 @@ export default function SessionSidebar() {
               최근
             </span>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "2px 8px" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "2px 8px" }} role="list">
             {sessions.length === 0 && (
               <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "16px 8px" }}>
                 대화를 시작하세요
@@ -192,36 +192,36 @@ export default function SessionSidebar() {
                       {session.title}
                     </span>
                   </button>
-                  {isHovered && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteSession(session.id);
-                      }}
-                      style={{
-                        position: "absolute",
-                        right: 6,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "transparent",
-                        border: "none",
-                        padding: "2px",
-                        cursor: "pointer",
-                        color: "var(--text-dim)",
-                        display: "flex",
-                        alignItems: "center",
-                        borderRadius: 4,
-                        transition: "color 0.1s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--destructive)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
-                      title="삭제"
-                      aria-label="세션 삭제"
-                    >
-                      {I.trash}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSession(session.id);
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: 6,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "transparent",
+                      border: "none",
+                      padding: "2px",
+                      cursor: "pointer",
+                      color: "var(--text-dim)",
+                      display: "flex",
+                      alignItems: "center",
+                      borderRadius: 4,
+                      opacity: isHovered ? 1 : 0,
+                      pointerEvents: isHovered ? "auto" : "none",
+                      transition: "color 0.1s, opacity 0.1s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--destructive)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
+                    title="삭제"
+                    aria-label="세션 삭제"
+                  >
+                    {I.trash}
+                  </button>
                 </div>
               );
             })}
