@@ -33,12 +33,12 @@ export default function SetupScreen() {
           color: "var(--foreground)",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "system-ui, -apple-system, sans-serif",
         }}
       >
         <div
           style={{
-            width: 480,
+            width: "100%",
+            maxWidth: 480,
             display: "flex",
             flexDirection: "column",
             gap: 24,

@@ -150,23 +150,30 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
           height: "100%",
           overflowY: "auto",
           padding: "20px 24px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
         }}
       >
-        {messages.map((msg, idx) => (
-          <ChatMessage
-            key={msg.id}
-            message={msg}
-            isStreaming={!!(msg.streaming && isStreaming)}
-            isLast={idx === messages.length - 1}
-            onCopy={handleCopy}
-            onRegenerate={handleRegenerate}
-            onEdit={(newContent) => editAndResend(msg.id, newContent)}
-          />
-        ))}
-        <div ref={bottomRef} />
+        <div
+          style={{
+            maxWidth: 760,
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          {messages.map((msg, idx) => (
+            <ChatMessage
+              key={msg.id}
+              message={msg}
+              isStreaming={!!(msg.streaming && isStreaming)}
+              isLast={idx === messages.length - 1}
+              onCopy={handleCopy}
+              onRegenerate={handleRegenerate}
+              onEdit={(newContent) => editAndResend(msg.id, newContent)}
+            />
+          ))}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Scroll-to-bottom button */}
