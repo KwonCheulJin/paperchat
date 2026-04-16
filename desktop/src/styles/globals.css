@@ -111,12 +111,16 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
   letter-spacing: var(--tracking-normal);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  word-break: keep-all;
   overflow-wrap: break-word;
+}
+
+/* 한국어 전용: 어절 단위 줄바꿈 */
+:lang(ko) {
+  word-break: keep-all;
 }
 
 /* 스크롤바 스타일 */
