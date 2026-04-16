@@ -14,11 +14,18 @@
   tesseract_ok:
 !macroend
 
-; ── 언인스톨 훅: 실행 중인 sidecar 프로세스 강제 종료 ─────────────────────
+; ── 언인스톨 훅: 프로세스 종료 + 모델 파일 삭제 선택 ─────────────────────
 !macro customUnInstall
   ; 실행 중인 backend 및 llama-server 프로세스 강제 종료
   nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "backend.exe" /T'
   nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "llama-server.exe" /T'
   ; 프로세스 종료 완료 대기
   Sleep 1500
+
+  ; AI 모델 파일 삭제 여부 확인 (4~32GB 대용량)
+  MessageBox MB_YESNO|MB_ICONQUESTION \
+    "AI 모델 파일을 삭제하시겠습니까?$\n$\nAI 모델 파일은 4~32GB 용량을 차지합니다.$\n삭제하지 않으면 재설치 시 다운로드를 건너뜁니다." \
+    IDNO no_model_delete
+    RMDir /r "$LOCALAPPDATA\com.paperchat.desktop"
+  no_model_delete:
 !macroend
