@@ -1,5 +1,21 @@
 ; paperchat 설치/언인스톨 훅
 
+; ── 공통 프로세스 종료 매크로 ─────────────────────────────────────────────
+!macro KillPaperchatProcesses
+  ; 메인 앱 먼저 종료 (sidecar 재기동 방지)
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "paperchat.exe" /T'
+  ; sidecar 프로세스 종료
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "backend.exe" /T'
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "llama-server.exe" /T'
+  ; 파일 핸들 해제 대기
+  Sleep 2000
+!macroend
+
+; ── 초기화 훅: 설치/재설치 시작 전 프로세스 종료 (.onInit에서 호출) ──────
+!macro customInit
+  !insertmacro KillPaperchatProcesses
+!macroend
+
 ; ── 설치 훅: Tesseract OCR 자동 설치 ──────────────────────────────────────
 !macro customInstall
   ; Tesseract 설치 여부 확인
@@ -16,11 +32,7 @@
 
 ; ── 언인스톨 훅: 프로세스 종료 + 모델 파일 삭제 선택 ─────────────────────
 !macro customUnInstall
-  ; 실행 중인 backend 및 llama-server 프로세스 강제 종료
-  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "backend.exe" /T'
-  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "llama-server.exe" /T'
-  ; 프로세스 종료 완료 대기
-  Sleep 1500
+  !insertmacro KillPaperchatProcesses
 
   ; AI 모델 파일 삭제 여부 확인 (4~32GB 대용량)
   MessageBox MB_YESNO|MB_ICONQUESTION \
