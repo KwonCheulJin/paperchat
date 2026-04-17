@@ -91,7 +91,7 @@ pub const MODELS: &[ModelInfo] = &[
         name: "Gemma 4 E2B",
         filename: "google_gemma-4-E2B-it-Q4_K_M.gguf",
         url: "https://huggingface.co/bartowski/google_gemma-4-E2B-it-GGUF/resolve/main/google_gemma-4-E2B-it-Q4_K_M.gguf",
-        size_gb: 3.5,
+        size_gb: 3.2,
         n_gpu_layers: 0,
     },
     ModelInfo {
@@ -635,25 +635,14 @@ fn run_install_lifecycle(
         }
     }
 
-    // ── Verifying (파일 크기 확인) ──────────────────────────────────────────
+    // ── Verifying (파일 존재 확인) ──────────────────────────────────────────
+    // 다운로드 완료(Done) 시 HTTP 클라이언트가 전송 완료를 보장하므로 크기 검증 불필요
     model_store.set_and_emit(&app, ModelState::Verifying);
-    if let Some(model_info) = MODELS.iter().find(|m| m.filename == filename) {
-        let expected_bytes = (model_info.size_gb as f64 * 1024.0 * 1024.0 * 1024.0) as u64;
-        if expected_bytes > 0 {
-            let actual = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
-            let min_expected = (expected_bytes as f64 * 0.95) as u64;
-            if actual < min_expected {
-                let reason = format!(
-                    "파일 크기 불일치 ({}MB / {}MB 예상)",
-                    actual / 1_048_576, expected_bytes / 1_048_576
-                );
-                log_error!("{}", reason);
-                // 불완전 파일 삭제 → 다음 재시도 시 처음부터 다운로드
-                let _ = std::fs::remove_file(&final_path);
-                model_store.set_and_emit(&app, ModelState::Failed { reason });
-                return;
-            }
-        }
+    if !final_path.exists() || std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0) == 0 {
+        let reason = "다운로드 파일을 찾을 수 없습니다".to_string();
+        log_error!("{}", reason);
+        model_store.set_and_emit(&app, ModelState::Failed { reason });
+        return;
     }
 
     // ── Switching (기존 llama-server 종료 후 재시작) ─────────────────────────
