@@ -264,11 +264,17 @@ pub struct ProcessManagerState(pub Mutex<ProcessManager>);
 
 // ─── 유틸리티 함수 ───────────────────────────────────────────────────────────
 
+#[cfg(windows)]
 fn hidden_cmd(program: &str) -> std::process::Command {
     use std::os::windows::process::CommandExt;
     let mut cmd = std::process::Command::new(program);
     cmd.creation_flags(CREATE_NO_WINDOW);
     cmd
+}
+
+#[cfg(not(windows))]
+fn hidden_cmd(program: &str) -> std::process::Command {
+    std::process::Command::new(program)
 }
 
 fn is_port_open(port: u16) -> bool {
@@ -841,6 +847,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            use tauri::Manager;
             // Tauri State 등록
             app.manage(ProcessManagerState(Mutex::new(ProcessManager::new())));
             app.manage(ModelStateStore::new());
@@ -942,6 +949,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                use tauri::Manager;
                 let handle = window.app_handle().clone();
                 std::thread::spawn(move || {
                     use tauri::Manager;
