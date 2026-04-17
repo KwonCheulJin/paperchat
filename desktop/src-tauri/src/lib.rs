@@ -544,7 +544,7 @@ fn launch_llm_process(
             "--port", "11434",
             "--ctx-size", "4096",
             "--threads", &cpu_threads,
-            "--n-batch", "256",
+            "--batch-size", "256",
             "--n-gpu-layers", &n_gpu_layers.to_string(),
             "--cache-type-k", "q4_0",
             "--cache-type-v", "q4_0",

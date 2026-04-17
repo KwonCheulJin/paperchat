@@ -58,25 +58,39 @@ export function useModelState(): UseModelStateReturn {
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
 
   useEffect(() => {
-    // 마운트 시 현재 상태 동기 조회 (이벤트 유실 방지)
-    invoke<RustModelState>("get_model_state").then((s) => {
+    let active = true;
+
+    const applyState = (s: RustModelState) => {
+      if (!active) return;
       setRustState(s);
       if (s.state === "idle" && s.all_models.length > 0) {
         const rec = s.all_models.find((m) => m.filename === s.recommended_filename);
         setSelectedModel((prev) => prev ?? rec ?? s.all_models[0]);
       }
-    }).catch(() => {});
+    };
 
-    // 라이프사이클 이벤트 구독
-    const unlisten = listen<RustModelState>("model-state-changed", ({ payload }) => {
-      setRustState(payload);
-      if (payload.state === "idle" && payload.all_models.length > 0) {
-        const rec = payload.all_models.find((m) => m.filename === payload.recommended_filename);
-        setSelectedModel((prev) => prev ?? rec ?? payload.all_models[0]);
-      }
-    });
+    // 리스너를 먼저 등록한 뒤 현재 상태를 조회 — 이벤트 유실 방지
+    // (웹뷰는 visible:false 상태에서도 JS 실행, 백그라운드 스레드가 emit하기 전에
+    //  invoke가 초기 빈 상태를 반환하는 타이밍 레이스 차단)
+    const setup = async () => {
+      const unlistenFn = await listen<RustModelState>("model-state-changed", ({ payload }) => {
+        applyState(payload);
+      });
 
-    return () => { unlisten.then((fn) => fn()); };
+      try {
+        const s = await invoke<RustModelState>("get_model_state");
+        applyState(s);
+      } catch {}
+
+      return unlistenFn;
+    };
+
+    const unlistenPromise = setup();
+
+    return () => {
+      active = false;
+      unlistenPromise.then((fn) => fn());
+    };
   }, []);
 
   const idleData = rustState.state === "idle" ? (rustState as IdleState) : null;

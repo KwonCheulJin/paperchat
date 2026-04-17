@@ -107,9 +107,12 @@ def query_dense(
     """
     qvec = embed_text(query_text)
     coll = get_chroma()
+    count = coll.count()
+    if count == 0:
+        return []
     query_kwargs = {
         "query_embeddings": [qvec],
-        "n_results": min(n_results, coll.count() or 1),
+        "n_results": min(n_results, count),
         "include": ["documents", "metadatas", "distances"],
     }
     if folder is not None:

@@ -41,3 +41,5 @@ desktop/src-tauri/binaries/
 .DS_Store
 Thumbs.db
 dist
+binaries/llama-server-aarch64-apple-darwin
+binaries/backend-aarch64-apple-darwin
