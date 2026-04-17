@@ -1,26 +1,35 @@
-import { useSetupStore } from "../../store/setup";
+import { UseModelStateReturn } from "../../hooks/use-model-state";
 import { GlobalStyles } from "../../shared/ui/global-styles";
 
-export default function SetupScreen() {
+type Props = { modelState: UseModelStateReturn };
+
+const STAGE_LABELS: Record<string, string> = {
+  idle: "시스템 확인 중...",
+  verifying: "파일 검증 중...",
+  switching: "모델 교체 중...",
+  loading: "AI 모델 초기화 중...",
+};
+
+export default function SetupScreen({ modelState }: Props) {
   const {
-    appStatus,
+    modelState: state,
+    failureReason,
+    downloadProgress,
     allModels,
     selectedModel,
     recommendedModel,
     ramGb,
     gpuName,
-    downloadPercent,
-    downloadedMb,
-    totalMb,
-    speedMbps,
     selectModel,
-    startDownload,
+    startInstall,
     cancelDownload,
-  } = useSetupStore();
+  } = modelState;
 
-  const isDownloading = appStatus === "downloading";
-  const isStartingLlm = appStatus === "starting_llm";
-  const isInitializing = appStatus === "initializing";
+  const isDownloading = state === "downloading";
+  const isLoading = state === "verifying" || state === "switching" || state === "loading";
+  const isInitializing = state === "idle" && ramGb === 0;
+  const isFailed = state === "failed";
+  const showModelSelect = state === "idle" && ramGb > 0;
 
   return (
     <>
@@ -57,7 +66,7 @@ export default function SetupScreen() {
               </span>
             </div>
             <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
-              채팅에 사용할 AI 모델을 다운로드합니다
+              {isFailed ? "설치 중 오류가 발생했습니다" : "채팅에 사용할 AI 모델을 다운로드합니다"}
             </p>
           </div>
 
@@ -99,7 +108,7 @@ export default function SetupScreen() {
           )}
 
           {/* 모델 선택 */}
-          {!isInitializing && !isStartingLlm && (
+          {showModelSelect && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <label htmlFor="model-select" style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
                 모델 선택
@@ -111,7 +120,6 @@ export default function SetupScreen() {
                   const model = allModels.find((m) => m.filename === e.target.value);
                   if (model) selectModel(model);
                 }}
-                disabled={isDownloading}
                 style={{
                   width: "100%",
                   padding: "8px 12px",
@@ -120,8 +128,7 @@ export default function SetupScreen() {
                   borderRadius: 8,
                   fontSize: 13,
                   color: "var(--foreground)",
-                  cursor: isDownloading ? "not-allowed" : "pointer",
-                  opacity: isDownloading ? 0.5 : 1,
+                  cursor: "pointer",
                 }}
               >
                 {allModels.map((m) => (
@@ -140,22 +147,22 @@ export default function SetupScreen() {
             </div>
           )}
 
-          {/* 초기화 중 스피너 */}
-          {(isInitializing || isStartingLlm) && (
+          {/* 로딩 스피너 (initializing / verifying / switching / loading) */}
+          {(isInitializing || isLoading) && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text-dim)", fontSize: 13 }}>
               <span style={{ animation: "tp 1.2s ease infinite", display: "inline-block" }}>•</span>
-              <span>{isStartingLlm ? "AI 모델 초기화 중..." : "시스템 확인 중..."}</span>
+              <span>{STAGE_LABELS[state] ?? "처리 중..."}</span>
             </div>
           )}
 
-          {/* 프로그레스바 */}
-          {isDownloading && (
+          {/* 다운로드 진행 */}
+          {isDownloading && downloadProgress && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
                 <span>
-                  {downloadedMb.toFixed(0)}MB / {totalMb.toFixed(0)}MB
+                  {downloadProgress.downloadedMb.toFixed(0)}MB / {downloadProgress.totalMb.toFixed(0)}MB
                 </span>
-                <span>{speedMbps.toFixed(1)} MB/s</span>
+                <span>{downloadProgress.speedMbps.toFixed(1)} MB/s</span>
               </div>
               <div
                 style={{
@@ -168,7 +175,7 @@ export default function SetupScreen() {
               >
                 <div
                   style={{
-                    width: `${downloadPercent}%`,
+                    width: `${downloadProgress.percent}%`,
                     height: "100%",
                     background: "var(--primary)",
                     borderRadius: 999,
@@ -177,13 +184,30 @@ export default function SetupScreen() {
                 />
               </div>
               <p style={{ fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>
-                {downloadPercent}% 완료
+                {downloadProgress.percent}% 완료
               </p>
             </div>
           )}
 
+          {/* 오류 메시지 */}
+          {isFailed && failureReason && (
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.3)",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "var(--text-muted)",
+                lineHeight: 1.6,
+              }}
+            >
+              {failureReason}
+            </div>
+          )}
+
           {/* 버튼 */}
-          {!isInitializing && !isStartingLlm && (
+          {(showModelSelect || isDownloading || isFailed) && (
             <div>
               {isDownloading ? (
                 <button
@@ -212,7 +236,7 @@ export default function SetupScreen() {
                 </button>
               ) : (
                 <button
-                  onClick={startDownload}
+                  onClick={startInstall}
                   disabled={!selectedModel}
                   style={{
                     width: "100%",
@@ -233,7 +257,9 @@ export default function SetupScreen() {
                     e.currentTarget.style.opacity = "1";
                   }}
                 >
-                  {selectedModel
+                  {isFailed
+                    ? "다시 시도"
+                    : selectedModel
                     ? `${selectedModel.name} 다운로드 (${selectedModel.size_gb}GB)`
                     : "모델을 선택하세요"}
                 </button>

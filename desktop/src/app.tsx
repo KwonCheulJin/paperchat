@@ -1,19 +1,14 @@
-import { useEffect } from "react";
 import { Toaster } from "sonner";
 import ChatPage from "./features/chat/chat-page";
 import SetupScreen from "./features/setup/setup-screen";
-import { useSetupStore } from "./store/setup";
+import { useModelState } from "./hooks/use-model-state";
 
 export default function App() {
-  const { appStatus, initListeners } = useSetupStore();
-
-  useEffect(() => {
-    initListeners();
-  }, [initListeners]);
+  const modelState = useModelState();
 
   return (
     <>
-      {appStatus === "ready" ? <ChatPage /> : <SetupScreen />}
+      {modelState.modelState === "ready" ? <ChatPage /> : <SetupScreen modelState={modelState} />}
       <Toaster position="top-right" richColors />
     </>
   );

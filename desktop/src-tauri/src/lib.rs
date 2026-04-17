@@ -7,7 +7,6 @@ const LLAMA_PORT: u16 = 11434;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // ─── Windows Job Object (부모 종료 시 자식 자동 종료) ────────────────────────
-// paperchat.exe가 강제 종료되어도 backend/llama-server가 따라 죽도록 보장
 #[cfg(windows)]
 mod job {
     use std::ffi::c_void;
@@ -18,14 +17,12 @@ mod job {
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     };
 
-    // *mut c_void는 Send/Sync가 아니므로 래퍼로 감싼다
     struct Handle(*mut c_void);
     unsafe impl Send for Handle {}
     unsafe impl Sync for Handle {}
 
     static JOB_HANDLE: std::sync::OnceLock<Handle> = std::sync::OnceLock::new();
 
-    /// 앱 시작 시 한 번 호출 — Kill-on-close Job Object 생성
     pub fn init() {
         let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
         if job.is_null() { return; }
@@ -44,7 +41,6 @@ mod job {
         let _ = JOB_HANDLE.set(Handle(job));
     }
 
-    /// 자식 프로세스를 Job에 등록 — 이후 paperchat 종료 시 자동 종료됨
     pub fn assign(child: &std::process::Child) {
         let job = match JOB_HANDLE.get() { Some(h) => h.0, None => return };
         let handle = child.as_raw_handle() as *mut c_void;
@@ -52,10 +48,10 @@ mod job {
     }
 }
 
-/// 로그 파일 경로 (data_dir 확정 전에는 None)
+// ─── 로그 ──────────────────────────────────────────────────────────────────
+
 static LOG_PATH: Lazy<Mutex<Option<std::path::PathBuf>>> = Lazy::new(|| Mutex::new(None));
 
-/// 타임스탬프 문자열 반환
 fn now_str() -> String {
     let t = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -64,7 +60,6 @@ fn now_str() -> String {
     format!("T+{}s", t)
 }
 
-/// 로그 파일에 한 줄 기록 (level: INFO/WARN/ERROR)
 fn log_to_file(level: &str, msg: &str) {
     let path_guard = LOG_PATH.lock().unwrap();
     if let Some(path) = path_guard.as_ref() {
@@ -76,12 +71,11 @@ fn log_to_file(level: &str, msg: &str) {
 }
 
 macro_rules! log_info  { ($($arg:tt)*) => { log_to_file("INFO",  &format!($($arg)*)) } }
-macro_rules! log_warn  { ($($arg:tt)*) => { log_to_file("WARN",  &format!($($arg)*)) } }
 macro_rules! log_error { ($($arg:tt)*) => { log_to_file("ERROR", &format!($($arg)*)) } }
 
 // ─── 모델 메타데이터 ────────────────────────────────────────────────────────
 
-#[derive(serde::Serialize, Clone)]
+#[derive(serde::Serialize, Clone, Debug)]
 pub struct ModelInfo {
     pub profile: &'static str,
     pub name: &'static str,
@@ -91,7 +85,6 @@ pub struct ModelInfo {
     pub n_gpu_layers: i32,
 }
 
-/// 다운로드 가능한 모델 목록 (프로필 순서)
 pub const MODELS: &[ModelInfo] = &[
     ModelInfo {
         profile: "nano",
@@ -135,35 +128,139 @@ pub const MODELS: &[ModelInfo] = &[
     },
 ];
 
-// ─── 다운로드 진행 이벤트 ────────────────────────────────────────────────────
+// ─── 다운로드 취소 플래그 ────────────────────────────────────────────────────
 
-#[derive(serde::Serialize, Clone)]
-pub struct DownloadProgressEvent {
-    pub percent: u8,
-    pub downloaded_mb: f64,
-    pub total_mb: f64,
-    pub speed_mbps: f64,
-}
-
-// ─── 공통 타입 ───────────────────────────────────────────────────────────────
-
-#[derive(serde::Serialize, Clone)]
-pub struct BackendStatus {
-    pub backend_running: bool,
-    pub llm_running: bool,
-}
-
-// ─── 프로세스 핸들 ───────────────────────────────────────────────────────────
-
-/// FastAPI sidecar 프로세스 핸들
-static BACKEND_PROCESS: Lazy<Mutex<Option<std::process::Child>>> =
-    Lazy::new(|| Mutex::new(None));
-/// llama-server sidecar 프로세스 핸들
-static LLAMA_PROCESS: Lazy<Mutex<Option<std::process::Child>>> =
-    Lazy::new(|| Mutex::new(None));
-/// 다운로드 취소 플래그
 static DOWNLOAD_CANCELLED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
+
+// ─── ModelState (라이프사이클 상태 머신) ─────────────────────────────────────
+
+#[derive(serde::Serialize, Clone, Debug)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum ModelState {
+    /// 모델 없음 — 사용자 선택 대기. 하드웨어 정보 포함.
+    Idle {
+        ram_gb: u64,
+        gpu_name: String,
+        vram_gb: u64,
+        recommended_filename: String,
+        all_models: Vec<ModelInfo>,
+    },
+    /// 다운로드 중
+    Downloading {
+        percent: u8,
+        downloaded_mb: f64,
+        total_mb: f64,
+        speed_mbps: f64,
+    },
+    /// 파일 크기 검증 중
+    Verifying,
+    /// 기존 llama-server 종료 중
+    Switching,
+    /// llama-server 모델 로딩 중
+    Loading,
+    /// 모델 로드 완료 — 채팅 가능
+    Ready,
+    /// 오류 발생
+    Failed { reason: String },
+}
+
+pub struct ModelStateStore(pub Mutex<ModelState>);
+
+impl ModelStateStore {
+    pub fn new() -> Self {
+        Self(Mutex::new(ModelState::Idle {
+            ram_gb: 0,
+            gpu_name: String::new(),
+            vram_gb: 0,
+            recommended_filename: String::new(),
+            all_models: vec![],
+        }))
+    }
+
+    pub fn get(&self) -> ModelState {
+        self.0.lock().unwrap().clone()
+    }
+
+    pub fn set_and_emit(&self, app: &tauri::AppHandle, state: ModelState) {
+        use tauri::Emitter;
+        *self.0.lock().unwrap() = state.clone();
+        let _ = app.emit("model-state-changed", &state);
+    }
+}
+
+// ─── ProcessManager ──────────────────────────────────────────────────────────
+
+struct ProcessManager {
+    server: Option<std::process::Child>,
+    llm: Option<std::process::Child>,
+}
+
+impl ProcessManager {
+    fn new() -> Self {
+        Self { server: None, llm: None }
+    }
+
+    /// paperchat-server 기동 (orphan 정리 내장)
+    fn spawn_server(&mut self, data_dir: &std::path::Path) -> Result<(), String> {
+        // 이전 실행에서 남은 orphan 프로세스 정리 (구 이름 backend.exe 포함)
+        #[cfg(windows)]
+        {
+            let _ = hidden_cmd("taskkill")
+                .args(["/F", "/IM", "paperchat-server.exe", "/T"])
+                .output();
+            let _ = hidden_cmd("taskkill")
+                .args(["/F", "/IM", "backend.exe", "/T"])
+                .output();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        if is_port_open(BACKEND_PORT) {
+            return Ok(());
+        }
+
+        if let Some(mut child) = self.server.take() {
+            let _ = child.kill();
+        }
+
+        let child = launch_server_process(data_dir)?;
+        #[cfg(windows)]
+        job::assign(&child);
+        self.server = Some(child);
+        Ok(())
+    }
+
+    /// llama-server 재시작 — Mutex 내부에서 kill-then-spawn 원자성 보장
+    fn spawn_llm(&mut self, model_path: &std::path::Path, n_gpu_layers: i32) -> Result<(), String> {
+        if let Some(mut child) = self.llm.take() {
+            let _ = child.kill();
+            // 포트 해제 대기 (최대 2초)
+            for _ in 0..10 {
+                if !is_port_open(LLAMA_PORT) { break; }
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+        }
+
+        let child = launch_llm_process(model_path, n_gpu_layers)?;
+        #[cfg(windows)]
+        job::assign(&child);
+        self.llm = Some(child);
+        Ok(())
+    }
+
+    fn kill_llm(&mut self) {
+        if let Some(mut child) = self.llm.take() {
+            let _ = child.kill();
+        }
+    }
+
+    fn shutdown_all(&mut self) {
+        if let Some(mut child) = self.server.take() { let _ = child.kill(); }
+        if let Some(mut child) = self.llm.take() { let _ = child.kill(); }
+    }
+}
+
+pub struct ProcessManagerState(pub Mutex<ProcessManager>);
 
 // ─── 유틸리티 함수 ───────────────────────────────────────────────────────────
 
@@ -178,7 +275,6 @@ fn is_port_open(port: u16) -> bool {
     std::net::TcpStream::connect(format!("127.0.0.1:{}", port)).is_ok()
 }
 
-/// 앱 실행 파일이 위치한 디렉토리 반환
 fn app_dir() -> Result<std::path::PathBuf, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     exe.parent()
@@ -186,7 +282,6 @@ fn app_dir() -> Result<std::path::PathBuf, String> {
         .map(|p| p.to_path_buf())
 }
 
-/// RAM 용량 GB 반환 (PowerShell)
 fn get_ram_gb() -> u64 {
     let output = hidden_cmd("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command",
@@ -199,7 +294,6 @@ fn get_ram_gb() -> u64 {
         .unwrap_or(8)
 }
 
-/// NVIDIA GPU 이름 + VRAM(GB) 반환
 fn get_gpu_info() -> (bool, String, u64) {
     let output = hidden_cmd("nvidia-smi")
         .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
@@ -223,7 +317,6 @@ fn get_gpu_info() -> (bool, String, u64) {
     (false, String::new(), 0)
 }
 
-/// 하드웨어 기반 권장 프로필 + 모델 결정
 fn recommended_model(ram_gb: u64, has_gpu: bool, vram_gb: u64) -> &'static ModelInfo {
     let profile = if ram_gb >= 64 && has_gpu && vram_gb >= 24 { "maximum" }
         else if ram_gb >= 32 && has_gpu { "performance" }
@@ -233,47 +326,38 @@ fn recommended_model(ram_gb: u64, has_gpu: bool, vram_gb: u64) -> &'static Model
     MODELS.iter().find(|m| m.profile == profile).unwrap_or(&MODELS[2])
 }
 
-/// 포트가 열릴 때까지 대기 (최대 max_secs 초)
 fn wait_for_port(port: u16, max_secs: u64) -> bool {
     for _ in 0..max_secs {
-        if is_port_open(port) {
-            return true;
-        }
+        if is_port_open(port) { return true; }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
     false
 }
 
-/// llama-server /health 엔드포인트가 {"status":"ok"}를 반환할 때까지 대기
-/// wait_for_port로 TCP 포트를 확인한 뒤 HTTP 레벨에서 모델 로딩 완료를 확인한다.
-fn wait_for_llama_ready(port: u16, max_secs: u64) -> bool {
-    // 1단계: TCP 포트 오픈 대기
-    if !wait_for_port(port, max_secs) {
-        return false;
-    }
-    // 2단계: HTTP /health 폴링 (모델 로딩 완료 확인)
-    let url = format!("http://127.0.0.1:{}/health", port);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(max_secs);
+/// /v1/models 응답으로 모델 로딩 완료 확인 (지수 백오프 폴링, 최대 timeout_secs)
+fn wait_until_loaded(port: u16, timeout_secs: u64) -> Result<(), String> {
+    let url = format!("http://127.0.0.1:{}/v1/models", port);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    let mut delay = std::time::Duration::from_secs(1);
     loop {
         if std::time::Instant::now() >= deadline {
-            return false;
+            return Err(format!("모델 로딩 {}초 초과", timeout_secs));
         }
-        match reqwest::blocking::get(&url) {
-            Ok(resp) if resp.status().is_success() => {
-                if let Ok(body) = resp.text() {
-                    if body.contains("\"ok\"") || body.contains("200") {
-                        return true;
+        if let Ok(resp) = reqwest::blocking::get(&url) {
+            if resp.status().is_success() {
+                if let Ok(text) = resp.text() {
+                    // data 배열이 비어있지 않으면 모델 로드 완료
+                    if text.contains("\"data\"") && !text.contains("\"data\":[]") {
+                        return Ok(());
                     }
                 }
-                return true; // 200 OK면 준비 완료로 간주
             }
-            _ => {}
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        std::thread::sleep(delay);
+        delay = (delay * 2).min(std::time::Duration::from_secs(8));
     }
 }
 
-/// 인스톨러가 저장한 config 구조체
 #[derive(serde::Deserialize)]
 struct InstallerConfig {
     install_path: String,
@@ -281,7 +365,6 @@ struct InstallerConfig {
     n_gpu_layers: i32,
 }
 
-/// 인스톨러 config 읽기 (%APPDATA%\paperchat\config.json)
 fn load_installer_config() -> Option<InstallerConfig> {
     let appdata = std::env::var("APPDATA").ok()?;
     let path = std::path::Path::new(&appdata)
@@ -291,9 +374,7 @@ fn load_installer_config() -> Option<InstallerConfig> {
     serde_json::from_str(&content).ok()
 }
 
-/// 모델 파일 경로 결정: 인스톨러 config → 없으면 data_dir/models/*.gguf 탐색
 fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)> {
-    // 1순위: 인스톨러 config
     if let Some(cfg) = load_installer_config() {
         let model_path = std::path::Path::new(&cfg.install_path)
             .join("models")
@@ -302,8 +383,6 @@ fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)
             return Some((model_path, cfg.n_gpu_layers));
         }
     }
-
-    // 2순위: data_dir/models/ 폴더에서 .gguf 탐색 (수동 배치 / 다운로드 완료)
     let models_dir = data_dir.join("models");
     let model_path = std::fs::read_dir(&models_dir).ok()?.find_map(|entry| {
         let path = entry.ok()?.path();
@@ -312,7 +391,6 @@ fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)
     Some((model_path, 0))
 }
 
-/// Windows 표준 경로에서 Tesseract 실행 파일 탐색
 fn find_tesseract() -> Option<String> {
     let candidates = [
         r"C:\Program Files\Tesseract-OCR\tesseract.exe",
@@ -326,26 +404,17 @@ fn find_tesseract() -> Option<String> {
     None
 }
 
-/// 이전 실행에서 남은 orphan backend.exe 프로세스 강제 종료
-fn kill_existing_backend() {
-    let _ = hidden_cmd("taskkill")
-        .args(["/F", "/IM", "backend.exe", "/T"])
-        .output();
-}
+// ─── 프로세스 빌더 ────────────────────────────────────────────────────────────
 
-/// 백엔드 프로세스 시작 (내부 공용 로직)
-fn launch_backend(data_dir: &std::path::Path) -> Result<(), String> {
-    if is_port_open(BACKEND_PORT) {
-        return Ok(());
-    }
-
-    let mut guard = BACKEND_PROCESS.lock().unwrap();
-    if guard.is_some() {
-        return Ok(());
-    }
-
+/// paperchat-server (FastAPI) 프로세스 생성
+fn launch_server_process(data_dir: &std::path::Path) -> Result<std::process::Child, String> {
     let dir = app_dir()?;
-    let backend_bin = dir.join("backend.exe");
+    // Track C: 신규 이름 우선, 구 이름 backend.exe 폴백
+    let server_bin = {
+        let new_name = dir.join("paperchat-server.exe");
+        if new_name.exists() { new_name } else { dir.join("backend.exe") }
+    };
+
     let chroma_path = data_dir.join("chroma");
     let sqlite_path = data_dir.join("paperchat.db");
     let _ = std::fs::create_dir_all(&chroma_path);
@@ -354,8 +423,8 @@ fn launch_backend(data_dir: &std::path::Path) -> Result<(), String> {
     let stdout_log = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).ok();
     let stderr_log = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).ok();
 
-    let child = if backend_bin.exists() {
-        let mut cmd = hidden_cmd(backend_bin.to_str().unwrap());
+    if server_bin.exists() {
+        let mut cmd = hidden_cmd(server_bin.to_str().unwrap());
         cmd.env("CHROMA_PATH", chroma_path.to_str().unwrap_or("./data/chroma"))
            .env("SQLITE_PATH", sqlite_path.to_str().unwrap_or("./data/paperchat.db"));
         if let Some(tess) = find_tesseract() {
@@ -364,36 +433,25 @@ fn launch_backend(data_dir: &std::path::Path) -> Result<(), String> {
         }
         if let Some(f) = stdout_log { cmd.stdout(f); }
         if let Some(f) = stderr_log { cmd.stderr(f); }
-        cmd.spawn().map_err(|e| format!("FastAPI 시작 실패: {}", e))?
+        cmd.spawn().map_err(|e| format!("paperchat-server 시작 실패: {}", e))
     } else {
         hidden_cmd("uvicorn")
             .args(["app.main:app", "--host", "127.0.0.1", "--port", "8000"])
             .current_dir("../backend")
             .spawn()
-            .map_err(|e| format!("uvicorn 시작 실패: {}", e))?
-    };
-
-    // Job Object에 등록: paperchat 종료 시 backend도 자동 종료
-    #[cfg(windows)]
-    job::assign(&child);
-
-    *guard = Some(child);
-    Ok(())
+            .map_err(|e| format!("uvicorn 시작 실패: {}", e))
+    }
 }
 
-/// llama-server 프로세스 시작 (내부 공용 로직)
-fn launch_llama_server(model_path: &std::path::Path, n_gpu_layers: i32) -> Result<(), String> {
-    let mut guard = LLAMA_PROCESS.lock().unwrap();
-    if guard.is_some() {
-        return Ok(());
-    }
-
+/// llama-server 프로세스 생성
+fn launch_llm_process(
+    model_path: &std::path::Path,
+    n_gpu_layers: i32,
+) -> Result<std::process::Child, String> {
     let dir = app_dir()?;
     let llama_bin = dir.join("llama-server.exe");
 
-    // ggml_backend_load_all()은 exe와 같은 디렉토리에서 ggml-*.dll을 탐색한다.
-    // Tauri NSIS 번들은 DLL을 $INSTDIR/binaries/ 에 설치하므로
-    // exe 디렉토리($INSTDIR/)로 복사해 백엔드 로딩이 가능하게 한다.
+    // ggml 백엔드 DLL이 binaries/ 에 있으면 $INSTDIR/ 로 복사
     let binaries_dir = dir.join("binaries");
     if binaries_dir.is_dir() {
         if let Ok(entries) = std::fs::read_dir(&binaries_dir) {
@@ -413,21 +471,19 @@ fn launch_llama_server(model_path: &std::path::Path, n_gpu_layers: i32) -> Resul
 
     let existing_path = std::env::var("PATH").unwrap_or_default();
     let dll_path = format!("{};{}", dir.to_string_lossy(), existing_path);
-
-    // 물리 코어 수 추정 (하이퍼스레딩 제외) — CPU 전용 추론 최적화
     let cpu_threads = std::thread::available_parallelism()
         .map(|n| (n.get() / 2).max(2))
         .unwrap_or(2)
         .to_string();
 
-    let child = hidden_cmd(llama_bin.to_str().unwrap_or("llama-server"))
+    hidden_cmd(llama_bin.to_str().unwrap_or("llama-server"))
         .args([
             "--model", model_path.to_str().unwrap_or(""),
             "--host", "127.0.0.1",
             "--port", "11434",
-            "--ctx-size", "4096",          // 8192→4096: KV 캐시 ~1GB 절약
-            "--threads", &cpu_threads,     // 물리 코어 수 명시 (컨텍스트 전환 감소)
-            "--n-batch", "256",            // 프롬프트 처리 배치 (메모리 절약)
+            "--ctx-size", "4096",
+            "--threads", &cpu_threads,
+            "--n-batch", "256",
             "--n-gpu-layers", &n_gpu_layers.to_string(),
             "--cache-type-k", "q4_0",
             "--cache-type-v", "q4_0",
@@ -437,21 +493,197 @@ fn launch_llama_server(model_path: &std::path::Path, n_gpu_layers: i32) -> Resul
         .env("PATH", &dll_path)
         .current_dir(&dir)
         .spawn()
-        .map_err(|e| format!("llama-server 시작 실패: {}", e))?;
+        .map_err(|e| format!("llama-server 시작 실패: {}", e))
+}
 
-    // Job Object에 등록: paperchat 종료 시 llama-server도 자동 종료
-    #[cfg(windows)]
-    job::assign(&child);
+// ─── 다운로드 + 설치 라이프사이클 ─────────────────────────────────────────────
 
-    *guard = Some(child);
-    Ok(())
+enum DownloadOutcome {
+    Done,
+    Cancelled,
+}
+
+fn download_file(
+    app: &tauri::AppHandle,
+    url: &str,
+    final_path: &std::path::Path,
+    filename: &str,
+) -> Result<DownloadOutcome, String> {
+    use std::io::Read;
+    use std::sync::atomic::Ordering;
+    use tauri::Manager;
+
+    let model_store = app.state::<ModelStateStore>();
+    let tmp_path = final_path.with_extension("gguf.tmp");
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(None)
+        .build()
+        .map_err(|e| format!("클라이언트 생성 실패: {}", e))?;
+
+    let mut resp = client.get(url).send()
+        .map_err(|e| format!("연결 실패: {}", e))?;
+
+    let total = resp.content_length().unwrap_or(0);
+    let total_mb = total as f64 / 1_048_576.0;
+
+    let mut file = std::fs::File::create(&tmp_path)
+        .map_err(|e| format!("파일 생성 실패: {}", e))?;
+
+    let mut downloaded = 0u64;
+    let mut buf = vec![0u8; 65536];
+    let start = std::time::Instant::now();
+    let mut last_emit = std::time::Instant::now();
+
+    loop {
+        if DOWNLOAD_CANCELLED.load(Ordering::SeqCst) {
+            drop(file);
+            let _ = std::fs::remove_file(&tmp_path);
+            // 취소 시 하드웨어 정보와 함께 Idle 복귀
+            let ram_gb = get_ram_gb();
+            let (has_gpu, gpu_name, vram_gb) = get_gpu_info();
+            let recommended = recommended_model(ram_gb, has_gpu, vram_gb);
+            model_store.set_and_emit(app, ModelState::Idle {
+                ram_gb, gpu_name, vram_gb,
+                recommended_filename: recommended.filename.to_string(),
+                all_models: MODELS.to_vec(),
+            });
+            return Ok(DownloadOutcome::Cancelled);
+        }
+
+        let n = match resp.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e) => {
+                drop(file);
+                let _ = std::fs::remove_file(&tmp_path);
+                return Err(format!("읽기 오류: {}", e));
+            }
+        };
+
+        file.write_all(&buf[..n])
+            .map_err(|e| format!("쓰기 오류: {}", e))?;
+        downloaded += n as u64;
+
+        if last_emit.elapsed().as_millis() >= 300 {
+            last_emit = std::time::Instant::now();
+            let elapsed = start.elapsed().as_secs_f64().max(0.001);
+            let speed_mbps = (downloaded as f64 / 1_048_576.0) / elapsed;
+            let percent = if total > 0 {
+                ((downloaded as f64 / total as f64) * 100.0).min(100.0) as u8
+            } else { 0 };
+            model_store.set_and_emit(app, ModelState::Downloading {
+                percent,
+                downloaded_mb: downloaded as f64 / 1_048_576.0,
+                total_mb,
+                speed_mbps,
+            });
+        }
+    }
+
+    drop(file);
+    std::fs::rename(&tmp_path, final_path)
+        .map_err(|e| format!("파일 이동 실패: {}", e))?;
+
+    log_info!("다운로드 완료: {} ({:.0}MB)", filename, total_mb);
+    Ok(DownloadOutcome::Done)
+}
+
+/// install_model 커맨드의 전체 라이프사이클 (별도 스레드에서 실행)
+fn run_install_lifecycle(
+    app: tauri::AppHandle,
+    url: String,
+    filename: String,
+    n_gpu_layers: i32,
+) {
+    use tauri::Manager;
+
+    let model_store = app.state::<ModelStateStore>();
+    let proc_mgr_state = app.state::<ProcessManagerState>();
+
+    let data_dir = app.path().app_local_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("./data"));
+    let models_dir = data_dir.join("models");
+    let _ = std::fs::create_dir_all(&models_dir);
+    let final_path = models_dir.join(&filename);
+
+    // ── Downloading (이미 파일 있으면 스킵) ────────────────────────────────
+    if !final_path.exists() {
+        model_store.set_and_emit(&app, ModelState::Downloading {
+            percent: 0, downloaded_mb: 0.0, total_mb: 0.0, speed_mbps: 0.0,
+        });
+        match download_file(&app, &url, &final_path, &filename) {
+            Ok(DownloadOutcome::Cancelled) => return,
+            Ok(DownloadOutcome::Done) => {},
+            Err(reason) => {
+                log_error!("다운로드 실패: {}", reason);
+                model_store.set_and_emit(&app, ModelState::Failed { reason });
+                return;
+            }
+        }
+    }
+
+    // ── Verifying (파일 크기 확인) ──────────────────────────────────────────
+    model_store.set_and_emit(&app, ModelState::Verifying);
+    if let Some(model_info) = MODELS.iter().find(|m| m.filename == filename) {
+        let expected_bytes = (model_info.size_gb as f64 * 1024.0 * 1024.0 * 1024.0) as u64;
+        if expected_bytes > 0 {
+            let actual = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
+            let min_expected = (expected_bytes as f64 * 0.95) as u64;
+            if actual < min_expected {
+                let reason = format!(
+                    "파일 크기 불일치 ({}MB / {}MB 예상)",
+                    actual / 1_048_576, expected_bytes / 1_048_576
+                );
+                log_error!("{}", reason);
+                model_store.set_and_emit(&app, ModelState::Failed { reason });
+                return;
+            }
+        }
+    }
+
+    // ── Switching (기존 llama-server 종료 후 재시작) ─────────────────────────
+    model_store.set_and_emit(&app, ModelState::Switching);
+    if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(&final_path, n_gpu_layers) {
+        log_error!("llama-server 재시작 실패: {}", e);
+        model_store.set_and_emit(&app, ModelState::Failed { reason: e });
+        return;
+    }
+
+    // ── Loading (모델 로딩 완료 대기) ────────────────────────────────────────
+    model_store.set_and_emit(&app, ModelState::Loading);
+    log_info!("llama-server 모델 로딩 대기...");
+    match wait_until_loaded(LLAMA_PORT, 60) {
+        Ok(()) => {
+            log_info!("모델 로딩 완료 → Ready");
+            model_store.set_and_emit(&app, ModelState::Ready);
+        }
+        Err(reason) => {
+            log_error!("모델 로딩 실패: {}", reason);
+            proc_mgr_state.0.lock().unwrap().kill_llm();
+            model_store.set_and_emit(&app, ModelState::Failed {
+                reason: format!("{} — RAM/VRAM 부족 가능성", reason),
+            });
+        }
+    }
 }
 
 // ─── Tauri 커맨드 ────────────────────────────────────────────────────────────
 
 mod commands {
-    use crate::{BACKEND_PORT, LLAMA_PORT, BackendStatus, hidden_cmd, LLAMA_PROCESS, app_dir, is_port_open, launch_backend};
+    use crate::{
+        BACKEND_PORT, LLAMA_PORT, is_port_open,
+        ModelState, ModelStateStore, ProcessManagerState,
+        run_install_lifecycle, DOWNLOAD_CANCELLED, MODELS,
+        get_ram_gb, get_gpu_info, recommended_model, resolve_model,
+    };
     use tauri::Manager;
+
+    #[derive(serde::Serialize)]
+    pub struct BackendStatus {
+        pub backend_running: bool,
+        pub llm_running: bool,
+    }
 
     #[tauri::command]
     pub fn get_backend_status() -> Result<BackendStatus, String> {
@@ -462,29 +694,13 @@ mod commands {
     }
 
     #[tauri::command]
-    pub fn start_backend(app_handle: tauri::AppHandle) -> Result<(), String> {
-        let data_dir = app_handle.path().app_local_data_dir()
-            .map_err(|e| e.to_string())?;
-        launch_backend(&data_dir)
+    pub fn get_model_state(app: tauri::AppHandle) -> ModelState {
+        app.state::<ModelStateStore>().get()
     }
 
     #[tauri::command]
-    pub fn start_llama_server(
-        model_path: String,
-        n_gpu_layers: i32,
-    ) -> Result<(), String> {
-        crate::launch_llama_server(std::path::Path::new(&model_path), n_gpu_layers)
-    }
-
-    #[tauri::command]
-    pub fn stop_all_sidecars() -> Result<(), String> {
-        use crate::BACKEND_PROCESS;
-        if let Some(mut child) = BACKEND_PROCESS.lock().unwrap().take() {
-            let _ = child.kill();
-        }
-        if let Some(mut child) = LLAMA_PROCESS.lock().unwrap().take() {
-            let _ = child.kill();
-        }
+    pub fn stop_all_sidecars(app: tauri::AppHandle) -> Result<(), String> {
+        app.state::<ProcessManagerState>().0.lock().unwrap().shutdown_all();
         Ok(())
     }
 
@@ -494,8 +710,8 @@ mod commands {
     }
 
     #[tauri::command]
-    pub fn read_logs(app_handle: tauri::AppHandle) -> Result<String, String> {
-        let data_dir = app_handle.path().app_local_data_dir()
+    pub fn read_logs(app: tauri::AppHandle) -> Result<String, String> {
+        let data_dir = app.path().app_local_data_dir()
             .map_err(|e| e.to_string())?;
 
         let mut output = String::new();
@@ -519,8 +735,7 @@ mod commands {
         Ok(output)
     }
 
-    // ── 모델 상태 조회 ──────────────────────────────────────────────────────
-
+    /// 하드웨어 정보 + 모델 유무 (디버깅/호환성 유지용)
     #[derive(serde::Serialize, Clone)]
     pub struct ModelStatusResult {
         pub has_model: bool,
@@ -534,186 +749,88 @@ mod commands {
     }
 
     #[tauri::command]
-    pub fn get_model_status(app_handle: tauri::AppHandle) -> Result<ModelStatusResult, String> {
-        let data_dir = app_handle.path().app_local_data_dir()
+    pub fn get_model_status(app: tauri::AppHandle) -> Result<ModelStatusResult, String> {
+        let data_dir = app.path().app_local_data_dir()
             .map_err(|e| e.to_string())?;
-        let (has_model, model_path) = match crate::resolve_model(&data_dir) {
+        let (has_model, model_path) = match resolve_model(&data_dir) {
             Some((p, _)) => (true, p.to_string_lossy().to_string()),
             None => (false, String::new()),
         };
-        let llama_running = crate::is_port_open(crate::LLAMA_PORT);
-        let ram_gb = crate::get_ram_gb();
-        let (has_gpu, gpu_name, vram_gb) = crate::get_gpu_info();
-        let recommended = crate::recommended_model(ram_gb, has_gpu, vram_gb).clone();
+        let llama_running = is_port_open(LLAMA_PORT);
+        let ram_gb = get_ram_gb();
+        let (has_gpu, gpu_name, vram_gb) = get_gpu_info();
+        let recommended = recommended_model(ram_gb, has_gpu, vram_gb).clone();
         Ok(ModelStatusResult {
-            has_model,
-            llama_running,
-            model_path,
-            ram_gb,
-            gpu_name,
-            vram_gb,
+            has_model, llama_running, model_path,
+            ram_gb, gpu_name, vram_gb,
             recommended,
-            all_models: crate::MODELS.to_vec(),
+            all_models: MODELS.to_vec(),
         })
     }
 
-    // ── 모델 다운로드 ────────────────────────────────────────────────────────
-
+    /// 모델 다운로드 + 설치 전체 라이프사이클 시작
     #[tauri::command]
-    pub fn download_model(
-        window: tauri::Window,
+    pub fn install_model(
+        app: tauri::AppHandle,
         url: String,
         filename: String,
-        app_handle: tauri::AppHandle,
+        n_gpu_layers: i32,
     ) -> Result<(), String> {
         use std::sync::atomic::Ordering;
-        crate::DOWNLOAD_CANCELLED.store(false, Ordering::SeqCst);
 
-        std::thread::spawn(move || {
-            use std::io::{Read, Write};
-            use tauri::Emitter;
-
-            let data_dir = app_handle.path().app_local_data_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("./data"));
-            let models_dir = data_dir.join("models");
-            let _ = std::fs::create_dir_all(&models_dir);
-
-            let tmp_path = models_dir.join(format!("{}.tmp", &filename));
-            let final_path = models_dir.join(&filename);
-
-            // 이미 완료된 파일이 있으면 스킵 → 바로 llama-server 기동
-            if final_path.exists() {
-                window.emit("download_progress", crate::DownloadProgressEvent {
-                    percent: 100, downloaded_mb: 0.0, total_mb: 0.0, speed_mbps: 0.0,
-                }).ok();
-                window.emit("download_done", &filename).ok();
-                start_llama_after_download(&window, &final_path, &filename);
-                return;
-            }
-
-            let client = match reqwest::blocking::Client::builder().timeout(None).build() {
-                Ok(c) => c,
-                Err(e) => {
-                    window.emit("download_error", format!("클라이언트 생성 실패: {}", e)).ok();
-                    return;
-                }
-            };
-
-            let mut resp = match client.get(&url).send() {
-                Ok(r) => r,
-                Err(e) => {
-                    window.emit("download_error", format!("연결 실패: {}", e)).ok();
-                    return;
-                }
-            };
-
-            let total = resp.content_length().unwrap_or(0);
-            let total_mb = total as f64 / 1_048_576.0;
-
-            let mut file = match std::fs::File::create(&tmp_path) {
-                Ok(f) => f,
-                Err(e) => {
-                    window.emit("download_error", format!("파일 생성 실패: {}", e)).ok();
-                    return;
-                }
-            };
-
-            let mut downloaded = 0u64;
-            let mut buf = vec![0u8; 65536];
-            let start = std::time::Instant::now();
-            let mut last_emit = std::time::Instant::now();
-
-            loop {
-                if crate::DOWNLOAD_CANCELLED.load(std::sync::atomic::Ordering::SeqCst) {
-                    let _ = std::fs::remove_file(&tmp_path);
-                    window.emit("download_error", "다운로드가 취소됐습니다.").ok();
-                    return;
-                }
-
-                let n = match resp.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => n,
-                    Err(e) => {
-                        window.emit("download_error", format!("읽기 오류: {}", e)).ok();
-                        return;
-                    }
-                };
-
-                if let Err(e) = file.write_all(&buf[..n]) {
-                    window.emit("download_error", format!("쓰기 오류: {}", e)).ok();
-                    return;
-                }
-
-                downloaded += n as u64;
-
-                if last_emit.elapsed().as_millis() >= 300 {
-                    last_emit = std::time::Instant::now();
-                    let elapsed = start.elapsed().as_secs_f64().max(0.001);
-                    let speed_mbps = (downloaded as f64 / 1_048_576.0) / elapsed;
-                    let percent = if total > 0 {
-                        ((downloaded as f64 / total as f64) * 100.0) as u8
-                    } else { 0 };
-
-                    window.emit("download_progress", crate::DownloadProgressEvent {
-                        percent,
-                        downloaded_mb: downloaded as f64 / 1_048_576.0,
-                        total_mb,
-                        speed_mbps,
-                    }).ok();
-                }
-            }
-
-            // 완료: tmp → 최종 경로
-            drop(file);
-            if let Err(e) = std::fs::rename(&tmp_path, &final_path) {
-                window.emit("download_error", format!("파일 이동 실패: {}", e)).ok();
-                return;
-            }
-
-            window.emit("download_progress", crate::DownloadProgressEvent {
-                percent: 100,
-                downloaded_mb: total_mb,
-                total_mb,
-                speed_mbps: 0.0,
-            }).ok();
-            window.emit("download_done", &filename).ok();
-            start_llama_after_download(&window, &final_path, &filename);
-        });
-
-        Ok(())
-    }
-
-    /// 다운로드 완료 후 llama-server를 기동하고 llama_ready 이벤트를 발송한다.
-    fn start_llama_after_download(
-        window: &tauri::Window,
-        model_path: &std::path::Path,
-        filename: &str,
-    ) {
-        use tauri::Emitter;
-        let n_gpu_layers = crate::MODELS.iter()
-            .find(|m| m.filename == filename)
-            .map(|m| m.n_gpu_layers)
-            .unwrap_or(0);
-
-        match crate::launch_llama_server(model_path, n_gpu_layers) {
-            Ok(()) => {
-                if crate::wait_for_llama_ready(crate::LLAMA_PORT, 120) {
-                    window.emit("llama_ready", true).ok();
-                } else {
-                    window.emit("download_error", "llama-server 시작 대기 시간 초과 (120s)").ok();
-                }
-            }
-            Err(e) => {
-                window.emit("download_error", format!("llama-server 시작 실패: {}", e)).ok();
-            }
+        // 이미 진행 중이면 거부
+        let current = app.state::<ModelStateStore>().get();
+        match current {
+            ModelState::Idle { .. } | ModelState::Failed { .. } | ModelState::Ready => {},
+            _ => return Err("이미 설치 중입니다".into()),
         }
+
+        DOWNLOAD_CANCELLED.store(false, Ordering::SeqCst);
+        std::thread::spawn(move || {
+            run_install_lifecycle(app, url, filename, n_gpu_layers);
+        });
+        Ok(())
     }
 
     #[tauri::command]
     pub fn cancel_download() -> Result<(), String> {
         use std::sync::atomic::Ordering;
-        crate::DOWNLOAD_CANCELLED.store(true, Ordering::SeqCst);
+        DOWNLOAD_CANCELLED.store(true, Ordering::SeqCst);
         Ok(())
+    }
+}
+
+// ─── 단위 테스트 ─────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wait_until_loaded_times_out_on_closed_port() {
+        // 닫힌 포트 → 1초 타임아웃 → Err
+        let result = wait_until_loaded(19999, 1);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("초과"));
+    }
+
+    #[test]
+    fn model_state_store_initial_is_idle() {
+        let store = ModelStateStore::new();
+        let state = store.get();
+        assert!(matches!(state, ModelState::Idle { ram_gb: 0, .. }));
+    }
+
+    #[test]
+    fn process_manager_shutdown_all_safe_when_empty() {
+        let mut pm = ProcessManager::new();
+        pm.shutdown_all(); // panic 없어야 함
+    }
+
+    #[test]
+    fn process_manager_kill_llm_safe_when_empty() {
+        let mut pm = ProcessManager::new();
+        pm.kill_llm(); // panic 없어야 함
     }
 }
 
@@ -724,11 +841,14 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // Tauri State 등록
+            app.manage(ProcessManagerState(Mutex::new(ProcessManager::new())));
+            app.manage(ModelStateStore::new());
+
             let app_handle = app.handle().clone();
 
             std::thread::spawn(move || {
                 use tauri::Manager;
-                use tauri::Emitter;
 
                 let data_dir = app_handle.path().app_local_data_dir()
                     .unwrap_or_else(|_| std::path::PathBuf::from("./data"));
@@ -739,67 +859,71 @@ pub fn run() {
                 }
                 log_info!("paperchat 시작 — data_dir={}", data_dir.display());
 
-                // Job Object 초기화: 이후 등록된 자식 프로세스는 paperchat 종료 시 자동 종료
                 #[cfg(windows)]
                 job::init();
 
-                // 이전 실행의 orphan backend 프로세스 정리
-                kill_existing_backend();
-                std::thread::sleep(std::time::Duration::from_millis(500));
+                let proc_mgr_state = app_handle.state::<ProcessManagerState>();
+                let model_store = app_handle.state::<ModelStateStore>();
 
-                // 백엔드 시작
-                match launch_backend(&data_dir) {
-                    Ok(()) => log_info!("backend.exe 시작 완료"),
-                    Err(e) => log_error!("backend.exe 시작 실패: {}", e),
+                // 서버 기동
+                match proc_mgr_state.0.lock().unwrap().spawn_server(&data_dir) {
+                    Ok(()) => log_info!("paperchat-server 시작 완료"),
+                    Err(e) => log_error!("paperchat-server 시작 실패: {}", e),
                 }
 
-                // backend 준비 대기 (최대 60초)
                 if wait_for_port(BACKEND_PORT, 60) {
                     log_info!("backend 포트 {} 준비 완료", BACKEND_PORT);
                 } else {
-                    log_error!("backend 포트 {} 대기 시간 초과 (60s)", BACKEND_PORT);
+                    log_error!("backend 포트 {} 대기 시간 초과", BACKEND_PORT);
                 }
 
-                // 창 먼저 표시 (SetupScreen or ChatPage는 프론트가 결정)
-                log_info!("창 표시");
+                // 모델 있으면 llm 미리 기동 (React 로드 시간 동안 병렬 시작)
+                let model_info = resolve_model(&data_dir);
+                let has_model = model_info.is_some();
+                if let Some((ref model_path, n_gpu_layers)) = model_info {
+                    log_info!("모델 발견: {}", model_path.display());
+                    if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(model_path, n_gpu_layers) {
+                        log_error!("llama-server 시작 실패: {}", e);
+                    }
+                }
+
+                // 창 표시
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
 
-                // 모델이 있으면 창 표시 직후 llama-server를 즉시 기동 (React 로딩 동안 병렬 시작)
-                let model_info = resolve_model(&data_dir);
-                let has_model = model_info.is_some();
-                if let Some((ref model_path, n_gpu_layers)) = model_info {
-                    log_info!("모델 발견: {} (n_gpu_layers={})", model_path.display(), n_gpu_layers);
-                    match launch_llama_server(model_path, n_gpu_layers) {
-                        Ok(()) => log_info!("llama-server 시작 완료"),
-                        Err(e) => log_error!("llama-server 시작 실패: {}", e),
-                    }
-                }
-
-                // React(webview)가 로드되어 이벤트 리스너를 등록할 때까지 대기
-                // 창 표시 직후 이벤트를 발송하면 리스너 등록 전에 유실됨
-                // llama-server가 이 2초 동안 기동을 완료할 수 있음
+                // React가 리스너를 등록할 때까지 대기
                 std::thread::sleep(std::time::Duration::from_secs(2));
 
-                // 모델 상태 이벤트 발송
-                log_info!("모델 상태: has_model={}", has_model);
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    window.emit("model_status", serde_json::json!({ "has_model": has_model })).ok();
-                }
-
-                // 모델이 있으면 llama-server 준비 대기 → llama_ready 이벤트
-                if model_info.is_some() {
-                    // HTTP /health까지 확인해야 모델 로딩 완료가 보장됨
-                    if wait_for_llama_ready(LLAMA_PORT, 120) {
-                        log_info!("llama-server 포트 {} HTTP 준비 완료", LLAMA_PORT);
-                    } else {
-                        log_error!("llama-server 포트 {} 대기 시간 초과 (120s)", LLAMA_PORT);
+                if has_model {
+                    log_info!("모델 로딩 대기...");
+                    model_store.set_and_emit(&app_handle, ModelState::Loading);
+                    match wait_until_loaded(LLAMA_PORT, 60) {
+                        Ok(()) => {
+                            log_info!("모델 로딩 완료 → Ready");
+                            model_store.set_and_emit(&app_handle, ModelState::Ready);
+                        }
+                        Err(reason) => {
+                            log_error!("모델 로딩 실패: {}", reason);
+                            proc_mgr_state.0.lock().unwrap().kill_llm();
+                            model_store.set_and_emit(&app_handle, ModelState::Failed {
+                                reason: format!("{} — RAM/VRAM 부족 가능성", reason),
+                            });
+                        }
                     }
-                    if let Some(window) = app_handle.get_webview_window("main") {
-                        window.emit("llama_ready", true).ok();
-                    }
+                } else {
+                    let ram_gb = get_ram_gb();
+                    let (has_gpu, gpu_name, vram_gb) = get_gpu_info();
+                    let recommended = recommended_model(ram_gb, has_gpu, vram_gb);
+                    log_info!("모델 없음 → Idle (RAM={}GB, GPU={})", ram_gb, gpu_name);
+                    model_store.set_and_emit(&app_handle, ModelState::Idle {
+                        ram_gb,
+                        gpu_name,
+                        vram_gb,
+                        recommended_filename: recommended.filename.to_string(),
+                        all_models: MODELS.to_vec(),
+                    });
                 }
             });
 
@@ -807,23 +931,23 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_backend_status,
-            commands::start_backend,
-            commands::start_llama_server,
+            commands::get_model_state,
+            commands::get_model_status,
             commands::stop_all_sidecars,
             commands::pick_pdf_files,
             commands::read_logs,
-            commands::get_model_status,
-            commands::download_model,
+            commands::install_model,
             commands::cancel_download,
         ])
-        .on_window_event(|_window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(mut child) = BACKEND_PROCESS.lock().unwrap().take() {
-                    let _ = child.kill();
-                }
-                if let Some(mut child) = LLAMA_PROCESS.lock().unwrap().take() {
-                    let _ = child.kill();
-                }
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let handle = window.app_handle().clone();
+                std::thread::spawn(move || {
+                    use tauri::Manager;
+                    handle.state::<ProcessManagerState>().0.lock().unwrap().shutdown_all();
+                    handle.exit(0);
+                });
             }
         })
         .run(tauri::generate_context!())

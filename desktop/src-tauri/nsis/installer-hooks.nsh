@@ -2,10 +2,16 @@
 
 ; ── 공통 프로세스 종료 매크로 ─────────────────────────────────────────────
 !macro KillPaperchatProcesses
-  ; 1차: 모든 관련 프로세스 강제 종료
-  nsExec::ExecToLog 'powershell.exe -NoProfile -Command "Stop-Process -Name paperchat,backend,llama-server -Force -ErrorAction SilentlyContinue"'
-  ; 2차: backend 종료 완료까지 최대 10초 폴링 (파일 핸들 해제 보장)
-  nsExec::ExecToLog 'powershell.exe -NoProfile -Command "$i=0; while((Get-Process -Name backend -ErrorAction SilentlyContinue) -and ($i++ -lt 20)){Start-Sleep -Milliseconds 500}"'
+  ; 현재 이름 + 구 이름(backend, llama-server) 모두 종료
+  nsExec::ExecToLog 'powershell.exe -NoProfile -Command "Stop-Process -Name paperchat,paperchat-server,backend,llama-server -Force -ErrorAction SilentlyContinue"'
+  ; paperchat-server / backend 종료 완료까지 최대 10초 폴링
+  nsExec::ExecToLog 'powershell.exe -NoProfile -Command "$i=0; while(((Get-Process -Name paperchat-server -EA SilentlyContinue) -or (Get-Process -Name backend -EA SilentlyContinue)) -and ($i++ -lt 20)){Start-Sleep -Milliseconds 500}"'
+!macroend
+
+; ── 업그레이드 시 구 바이너리 정리 (backend.exe, llama-server.exe 제거) ────
+!macro CleanupOldBinaries
+  Delete "$INSTDIR\backend.exe"
+  Delete "$INSTDIR\llama-server.exe"
 !macroend
 
 ; ── 초기화 훅: 설치/재설치 시작 전 프로세스 종료 (.onInit에서 호출) ──────
@@ -13,8 +19,9 @@
   !insertmacro KillPaperchatProcesses
 !macroend
 
-; ── 설치 훅: Tesseract OCR 자동 설치 ──────────────────────────────────────
+; ── 설치 훅: 업그레이드 구 파일 정리 + Tesseract OCR 자동 설치 ──────────────
 !macro customInstall
+  !insertmacro CleanupOldBinaries
   ; Tesseract 설치 여부 확인
   IfFileExists "$PROGRAMFILES64\Tesseract-OCR\tesseract.exe" tesseract_ok tesseract_missing
   tesseract_missing:
