@@ -320,27 +320,30 @@ fn get_ram_gb() -> u64 {
 fn get_gpu_info() -> (bool, String, u64) {
     #[cfg(target_os = "macos")]
     {
-        // Apple Silicon은 unified memory — GPU 별도 VRAM 없음
-        let output = std::process::Command::new("system_profiler")
-            .args(["SPDisplaysDataType", "-json"])
+        // Apple Silicon: unified memory, GPU 이름은 ioreg로 빠르게 읽기
+        // system_profiler는 수십 초 블록 가능성 있어 사용 안 함
+        let output = std::process::Command::new("ioreg")
+            .args(["-l", "-n", "AGXAccelerator", "-d", "1"])
             .output();
         if let Ok(out) = output {
             let text = String::from_utf8_lossy(&out.stdout);
-            // GPU 이름만 추출 (VRAM은 unified memory라 의미 없음)
-            if let Some(name_start) = text.find("\"sppci_model\"") {
-                let rest = &text[name_start + 14..];
-                if let Some(colon) = rest.find(':') {
-                    let after = rest[colon + 1..].trim();
-                    if after.starts_with('"') {
-                        if let Some(end) = after[1..].find('"') {
-                            let name = after[1..end + 1].to_string();
-                            if !name.is_empty() {
-                                return (true, name, 0);
-                            }
-                        }
-                    }
+            for line in text.lines() {
+                if line.contains("\"IOClass\"") {
+                    // GPU 존재 확인만 → 이름은 칩셋에서 유추
+                    break;
                 }
             }
+        }
+        // 칩 이름은 sysctl로 빠르게 읽기
+        let chip_name = std::process::Command::new("sysctl")
+            .args(["-n", "machdep.cpu.brand_string"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        if !chip_name.is_empty() {
+            return (true, chip_name, 0);
         }
         return (false, String::new(), 0);
     }
@@ -923,16 +926,18 @@ pub fn run() {
                     log_error!("paperchat-server 시작 실패 — backend 없이 계속");
                 }
 
-                // 모델 존재 여부 먼저 확인
+                // 하드웨어 감지 (모델 유무 관계없이 항상 먼저)
+                let ram_gb = get_ram_gb();
+                let (has_gpu, gpu_name, vram_gb) = get_gpu_info();
+                let recommended = recommended_model(ram_gb, has_gpu, vram_gb);
+                log_info!("하드웨어 감지 완료 — RAM={}GB, GPU={}", ram_gb, gpu_name);
+
+                // 모델 존재 여부 확인
                 let model_info = resolve_model(&data_dir);
                 let has_model = model_info.is_some();
 
-                // 모델 없으면 하드웨어 감지 후 즉시 Idle emit → UI 바로 표시
                 if !has_model {
-                    let ram_gb = get_ram_gb();
-                    let (has_gpu, gpu_name, vram_gb) = get_gpu_info();
-                    let recommended = recommended_model(ram_gb, has_gpu, vram_gb);
-                    log_info!("모델 없음 → Idle (RAM={}GB, GPU={})", ram_gb, gpu_name);
+                    log_info!("모델 없음 → Idle");
                     model_store.set_and_emit(&app_handle, ModelState::Idle {
                         ram_gb,
                         gpu_name,
@@ -940,6 +945,10 @@ pub fn run() {
                         recommended_filename: recommended.filename.to_string(),
                         all_models: MODELS.to_vec(),
                     });
+                } else {
+                    // 모델 있음 → 즉시 Loading emit으로 "시스템 확인 중..." 방지
+                    log_info!("모델 발견 → Loading 상태 emit");
+                    model_store.set_and_emit(&app_handle, ModelState::Loading);
                 }
 
                 // 창 표시
