@@ -881,37 +881,56 @@ pub fn run() {
                 let model_store = app_handle.state::<ModelStateStore>();
 
                 // 서버 기동
-                match proc_mgr_state.0.lock().unwrap().spawn_server(&data_dir) {
-                    Ok(()) => log_info!("paperchat-server 시작 완료"),
-                    Err(e) => log_error!("paperchat-server 시작 실패: {}", e),
+                let server_ok = proc_mgr_state.0.lock().unwrap().spawn_server(&data_dir).is_ok();
+                if server_ok {
+                    log_info!("paperchat-server 시작 완료");
+                } else {
+                    log_error!("paperchat-server 시작 실패 — backend 없이 계속");
                 }
 
-                // 창 먼저 표시 (서버 대기 전)
+                // 모델 존재 여부 먼저 확인
+                let model_info = resolve_model(&data_dir);
+                let has_model = model_info.is_some();
+
+                // 모델 없으면 하드웨어 감지 후 즉시 Idle emit → UI 바로 표시
+                if !has_model {
+                    let ram_gb = get_ram_gb();
+                    let (has_gpu, gpu_name, vram_gb) = get_gpu_info();
+                    let recommended = recommended_model(ram_gb, has_gpu, vram_gb);
+                    log_info!("모델 없음 → Idle (RAM={}GB, GPU={})", ram_gb, gpu_name);
+                    model_store.set_and_emit(&app_handle, ModelState::Idle {
+                        ram_gb,
+                        gpu_name,
+                        vram_gb,
+                        recommended_filename: recommended.filename.to_string(),
+                        all_models: MODELS.to_vec(),
+                    });
+                }
+
+                // 창 표시
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
 
-                if wait_for_port(BACKEND_PORT, 60) {
-                    log_info!("backend 포트 {} 준비 완료", BACKEND_PORT);
-                } else {
-                    log_error!("backend 포트 {} 대기 시간 초과", BACKEND_PORT);
-                }
-
-                // 모델 있으면 llm 미리 기동 (React 로드 시간 동안 병렬 시작)
-                let model_info = resolve_model(&data_dir);
-                let has_model = model_info.is_some();
-                if let Some((ref model_path, n_gpu_layers)) = model_info {
-                    log_info!("모델 발견: {}", model_path.display());
-                    if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(model_path, n_gpu_layers) {
-                        log_error!("llama-server 시작 실패: {}", e);
-                    }
-                }
-
-                // React가 리스너를 등록할 때까지 대기
-                std::thread::sleep(std::time::Duration::from_secs(2));
-
+                // 모델 있을 때만 backend 포트 대기 후 llama-server 기동
                 if has_model {
+                    if wait_for_port(BACKEND_PORT, 60) {
+                        log_info!("backend 포트 {} 준비 완료", BACKEND_PORT);
+                    } else {
+                        log_error!("backend 포트 {} 대기 시간 초과", BACKEND_PORT);
+                    }
+
+                    if let Some((ref model_path, n_gpu_layers)) = model_info {
+                        log_info!("모델 발견: {}", model_path.display());
+                        if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(model_path, n_gpu_layers) {
+                            log_error!("llama-server 시작 실패: {}", e);
+                        }
+                    }
+
+                    // React가 리스너를 등록할 때까지 대기
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+
                     log_info!("모델 로딩 대기...");
                     model_store.set_and_emit(&app_handle, ModelState::Loading);
                     match wait_until_loaded(LLAMA_PORT, 60) {
@@ -927,18 +946,6 @@ pub fn run() {
                             });
                         }
                     }
-                } else {
-                    let ram_gb = get_ram_gb();
-                    let (has_gpu, gpu_name, vram_gb) = get_gpu_info();
-                    let recommended = recommended_model(ram_gb, has_gpu, vram_gb);
-                    log_info!("모델 없음 → Idle (RAM={}GB, GPU={})", ram_gb, gpu_name);
-                    model_store.set_and_emit(&app_handle, ModelState::Idle {
-                        ram_gb,
-                        gpu_name,
-                        vram_gb,
-                        recommended_filename: recommended.filename.to_string(),
-                        all_models: MODELS.to_vec(),
-                    });
                 }
             });
 
