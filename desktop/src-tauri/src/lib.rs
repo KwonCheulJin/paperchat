@@ -415,10 +415,13 @@ fn find_tesseract() -> Option<String> {
 /// paperchat-server (FastAPI) 프로세스 생성
 fn launch_server_process(data_dir: &std::path::Path) -> Result<std::process::Child, String> {
     let dir = app_dir()?;
-    // Track C: 신규 이름 우선, 구 이름 backend.exe 폴백
     let server_bin = {
-        let new_name = dir.join("paperchat-server.exe");
-        if new_name.exists() { new_name } else { dir.join("backend.exe") }
+        #[cfg(windows)]
+        let names = ["paperchat-server.exe", "backend.exe"];
+        #[cfg(not(windows))]
+        let names = ["paperchat-server", "backend"];
+        names.iter().map(|n| dir.join(n)).find(|p| p.exists())
+            .unwrap_or_else(|| dir.join(names[0]))
     };
 
     let chroma_path = data_dir.join("chroma");
@@ -455,7 +458,10 @@ fn launch_llm_process(
     n_gpu_layers: i32,
 ) -> Result<std::process::Child, String> {
     let dir = app_dir()?;
+    #[cfg(windows)]
     let llama_bin = dir.join("llama-server.exe");
+    #[cfg(not(windows))]
+    let llama_bin = dir.join("llama-server");
 
     // ggml 백엔드 DLL이 binaries/ 에 있으면 $INSTDIR/ 로 복사
     let binaries_dir = dir.join("binaries");
@@ -642,6 +648,8 @@ fn run_install_lifecycle(
                     actual / 1_048_576, expected_bytes / 1_048_576
                 );
                 log_error!("{}", reason);
+                // 불완전 파일 삭제 → 다음 재시도 시 처음부터 다운로드
+                let _ = std::fs::remove_file(&final_path);
                 model_store.set_and_emit(&app, ModelState::Failed { reason });
                 return;
             }
@@ -878,6 +886,12 @@ pub fn run() {
                     Err(e) => log_error!("paperchat-server 시작 실패: {}", e),
                 }
 
+                // 창 먼저 표시 (서버 대기 전)
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+
                 if wait_for_port(BACKEND_PORT, 60) {
                     log_info!("backend 포트 {} 준비 완료", BACKEND_PORT);
                 } else {
@@ -892,12 +906,6 @@ pub fn run() {
                     if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(model_path, n_gpu_layers) {
                         log_error!("llama-server 시작 실패: {}", e);
                     }
-                }
-
-                // 창 표시
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
                 }
 
                 // React가 리스너를 등록할 때까지 대기
