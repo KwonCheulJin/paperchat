@@ -289,38 +289,84 @@ fn app_dir() -> Result<std::path::PathBuf, String> {
 }
 
 fn get_ram_gb() -> u64 {
-    let output = hidden_cmd("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command",
-            "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"])
-        .output();
-    output.ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .and_then(|s| s.trim().parse::<u64>().ok())
-        .map(|bytes| bytes / (1024 * 1024 * 1024))
-        .unwrap_or(8)
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("sysctl")
+            .args(["-n", "hw.memsize"])
+            .output();
+        if let Some(bytes) = output.ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .and_then(|s| s.trim().parse::<u64>().ok())
+        {
+            return bytes / (1024 * 1024 * 1024);
+        }
+    }
+    #[cfg(windows)]
+    {
+        let output = hidden_cmd("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command",
+                "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"])
+            .output();
+        if let Some(bytes) = output.ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .and_then(|s| s.trim().parse::<u64>().ok())
+        {
+            return bytes / (1024 * 1024 * 1024);
+        }
+    }
+    8
 }
 
 fn get_gpu_info() -> (bool, String, u64) {
-    let output = hidden_cmd("nvidia-smi")
-        .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
-        .output();
-    if let Ok(out) = output {
-        if out.status.success() {
+    #[cfg(target_os = "macos")]
+    {
+        // Apple Silicon은 unified memory — GPU 별도 VRAM 없음
+        let output = std::process::Command::new("system_profiler")
+            .args(["SPDisplaysDataType", "-json"])
+            .output();
+        if let Ok(out) = output {
             let text = String::from_utf8_lossy(&out.stdout);
-            let line = text.lines().map(|l| l.trim()).find(|l| !l.is_empty()).unwrap_or("");
-            if !line.is_empty() {
-                let parts: Vec<&str> = line.splitn(2, ',').collect();
-                let name = parts[0].trim().to_string();
-                let vram_gb = parts.get(1)
-                    .and_then(|s| s.trim().parse::<u64>().ok())
-                    .unwrap_or(0) / 1024;
-                if !name.is_empty() {
-                    return (true, name, vram_gb);
+            // GPU 이름만 추출 (VRAM은 unified memory라 의미 없음)
+            if let Some(name_start) = text.find("\"sppci_model\"") {
+                let rest = &text[name_start + 14..];
+                if let Some(colon) = rest.find(':') {
+                    let after = rest[colon + 1..].trim();
+                    if after.starts_with('"') {
+                        if let Some(end) = after[1..].find('"') {
+                            let name = after[1..end + 1].to_string();
+                            if !name.is_empty() {
+                                return (true, name, 0);
+                            }
+                        }
+                    }
                 }
             }
         }
+        return (false, String::new(), 0);
     }
-    (false, String::new(), 0)
+    #[cfg(not(target_os = "macos"))]
+    {
+        let output = hidden_cmd("nvidia-smi")
+            .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+            .output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                let text = String::from_utf8_lossy(&out.stdout);
+                let line = text.lines().map(|l| l.trim()).find(|l| !l.is_empty()).unwrap_or("");
+                if !line.is_empty() {
+                    let parts: Vec<&str> = line.splitn(2, ',').collect();
+                    let name = parts[0].trim().to_string();
+                    let vram_gb = parts.get(1)
+                        .and_then(|s| s.trim().parse::<u64>().ok())
+                        .unwrap_or(0) / 1024;
+                    if !name.is_empty() {
+                        return (true, name, vram_gb);
+                    }
+                }
+            }
+        }
+        (false, String::new(), 0)
+    }
 }
 
 fn recommended_model(ram_gb: u64, has_gpu: bool, vram_gb: u64) -> &'static ModelInfo {
