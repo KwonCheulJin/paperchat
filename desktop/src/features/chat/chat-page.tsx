@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useChatStore } from "../../store/chat";
 import FloatingSidebar from "./floating-sidebar";
 import SessionSidebar from "./session-sidebar";
@@ -8,11 +8,29 @@ import DocumentPanel from "../documents/document-panel";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import { GlobalStyles } from "../../shared/ui/global-styles";
+import { PROFILES } from "../../shared/profiles";
 
 export default function ChatPage() {
   const [leftPinned, setLeftPinned] = useState(false);
   const [rightPinned, setRightPinned] = useState(false);
-  const { sessions, activeSessionId } = useChatStore();
+  const { sessions, activeSessionId, activeFolder, setProfile } = useChatStore();
+
+  useEffect(() => {
+    const PROFILE_VALUES = PROFILES.map((p) => p.value);
+    const handler = (e: KeyboardEvent) => {
+      const isTyping = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setRightPinned((v) => !v);
+      }
+      if (e.altKey && !isTyping && ["Digit1", "Digit2", "Digit3", "Digit4"].includes(e.code)) {
+        const idx = parseInt(e.code.replace("Digit", "")) - 1;
+        if (PROFILE_VALUES[idx]) setProfile(PROFILE_VALUES[idx]);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setProfile]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   const sessionTitle = activeSession?.title ?? "paperchat";
@@ -73,7 +91,7 @@ export default function ChatPage() {
                 style={{
                   fontSize: 13,
                   color: "var(--text-secondary)",
-                  maxWidth: 240,
+                  maxWidth: 200,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -81,6 +99,26 @@ export default function ChatPage() {
               >
                 {sessionTitle}
               </span>
+              {activeFolder && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "2px 8px",
+                    background: "color-mix(in oklch, var(--primary) 12%, transparent)",
+                    border: "1px solid color-mix(in oklch, var(--primary) 30%, transparent)",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    color: "var(--primary)",
+                    flexShrink: 0,
+                  }}
+                  title="활성 폴더: 이 폴더 문서만 검색에 사용됩니다"
+                >
+                  <span style={{ display: "flex" }}>{I.folder}</span>
+                  <span>{activeFolder}</span>
+                </div>
+              )}
             </div>
             <Tb
               icon={I.sidebarR}

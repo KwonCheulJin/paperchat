@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
 import { useChatStore } from "../../store/chat";
 import { useDocumentsStore } from "../../store/documents";
 import { I } from "../../shared/ui/icons";
@@ -12,9 +12,9 @@ interface InputBarProps {
 }
 
 export default function InputBar({ onFolderToggle }: InputBarProps) {
-  const { isStreaming, sendMessage, stopStreaming } = useChatStore();
+  const { isStreaming, streamingPhase, sendMessage, stopStreaming } = useChatStore();
   const { uploadFile, uploadFiles } = useDocumentsStore();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => localStorage.getItem("chat_draft") ?? "");
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,17 +33,31 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [showUploadMenu]);
 
-  const canSend = text.trim().length > 0 && !isStreaming;
+  const canSend = text.trim().length > 0 && !isStreaming && text.length <= MAX_CHARS;
+
+  const updateText = useCallback((value: string) => {
+    setText(value);
+    if (value) {
+      localStorage.setItem("chat_draft", value);
+    } else {
+      localStorage.removeItem("chat_draft");
+    }
+  }, []);
 
   const handleSend = async () => {
     if (!canSend) return;
     const trimmed = text.trim();
-    setText("");
+    updateText("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     try {
       await sendMessage(trimmed);
     } catch {
-      // store 내부에서 toast로 에러 처리됨
+      // 전송 실패 시 입력 내용 복원
+      updateText(trimmed);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+      }
     }
   };
 
@@ -67,7 +81,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
   return (
     <div
       style={{
-        padding: "12px 16px 16px",
+        padding: "12px 24px 16px",
         background: "var(--background)",
         borderTop: "1px solid var(--surface-2)",
       }}
@@ -108,6 +122,8 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
       {/* Main input container */}
       <div
         style={{
+          maxWidth: 760,
+          margin: "0 auto",
           background: "var(--card)",
           border: "1px solid var(--border)",
           borderRadius: 12,
@@ -126,7 +142,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               tip="파일 업로드"
               onClick={() => setShowUploadMenu((v) => !v)}
               act={showUploadMenu}
-              activeColor="#a78bfa"
+              activeColor="var(--primary)"
             />
             {showUploadMenu && (
               <div
@@ -134,8 +150,8 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                   position: "absolute",
                   bottom: "calc(100% + 4px)",
                   left: 0,
-                  background: "#18181b",
-                  border: "1px solid #27272a",
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   padding: "4px",
                   zIndex: 50,
@@ -155,17 +171,17 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                     borderRadius: 6,
                     padding: "7px 10px",
                     fontSize: 13,
-                    color: "#a1a1aa",
+                    color: "var(--text-muted)",
                     cursor: "pointer",
                     textAlign: "left",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#27272a";
-                    e.currentTarget.style.color = "#d4d4d8";
+                    e.currentTarget.style.background = "var(--surface-2)";
+                    e.currentTarget.style.color = "var(--text-secondary)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "#a1a1aa";
+                    e.currentTarget.style.color = "var(--text-muted)";
                   }}
                 >
                   {I.attach}
@@ -183,17 +199,17 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                     borderRadius: 6,
                     padding: "7px 10px",
                     fontSize: 13,
-                    color: "#a1a1aa",
+                    color: "var(--text-muted)",
                     cursor: "pointer",
                     textAlign: "left",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#27272a";
-                    e.currentTarget.style.color = "#d4d4d8";
+                    e.currentTarget.style.background = "var(--surface-2)";
+                    e.currentTarget.style.color = "var(--text-secondary)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "#a1a1aa";
+                    e.currentTarget.style.color = "var(--text-muted)";
                   }}
                 >
                   {I.folder}
@@ -204,17 +220,23 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
           </div>
 
           {/* Folder toggle (오른쪽 패널) */}
-          <Tb icon={I.folder} tip="문서 패널" onClick={onFolderToggle} />
+          <Tb icon={I.sidebarR} tip="문서 패널" onClick={onFolderToggle} />
 
           {/* Textarea */}
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => updateText(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
             disabled={isStreaming}
-            placeholder={isStreaming ? "응답 생성 중..." : "메시지를 입력하세요..."}
+            placeholder={
+              streamingPhase === "fetching"
+                ? "문서 검색 중..."
+                : streamingPhase === "generating"
+                ? "응답 작성 중..."
+                : "메시지를 입력하세요..."
+            }
             rows={1}
             style={{
               flex: 1,
@@ -242,6 +264,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
             <button
               onClick={stopStreaming}
               title="중지"
+              aria-label="응답 중지"
               style={{
                 flexShrink: 0,
                 width: 32,
@@ -266,6 +289,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               onClick={handleSend}
               disabled={!canSend}
               title="전송 (Enter)"
+              aria-label="메시지 전송"
               style={{
                 flexShrink: 0,
                 width: 32,
@@ -302,18 +326,17 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
           }}
         >
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            Enter로 전송 · Shift+Enter로 줄바꿈
+            Enter로 전송 · Shift+Enter로 줄바꿈 · ⌘⇧D 문서 패널
           </span>
-          {charCount > 0 && (
-            <span
-              style={{
-                fontSize: 11,
-                color: nearLimit ? "var(--destructive)" : "var(--text-dim)",
-              }}
-            >
-              {charCount} / {MAX_CHARS}
-            </span>
-          )}
+          <span
+            style={{
+              fontSize: 11,
+              color: nearLimit ? "var(--destructive)" : "var(--text-dim)",
+              opacity: charCount === 0 ? 0.4 : 1,
+            }}
+          >
+            {charCount === 0 ? `최대 ${MAX_CHARS.toLocaleString()}자` : `${charCount} / ${MAX_CHARS}`}
+          </span>
         </div>
       </div>
     </div>

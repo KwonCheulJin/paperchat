@@ -2,23 +2,21 @@ import { useEffect, useRef, useState, useCallback, type UIEvent } from "react";
 import { useChatStore } from "../../store/chat";
 import ChatMessage from "./chat-message";
 import { I } from "../../shared/ui/icons";
-
-const SUGGESTIONS = [
-  "이 문서의 핵심 내용을 요약해주세요",
-  "관련 법률 조항을 찾아주세요",
-  "투자 리스크를 분석해주세요",
-  "기술 스펙을 정리해주세요",
-];
+import { AlertDialog } from "../../shared/ui/alert-dialog";
+import { PROFILES } from "../../shared/profiles";
 
 interface MessageListProps {
   onRightPanelToggle: () => void;
 }
 
 export default function MessageList({ onRightPanelToggle }: MessageListProps) {
-  const { sessions, activeSessionId, isStreaming, sendMessage, editAndResend } = useChatStore();
+  const { sessions, activeSessionId, isStreaming, sendMessage, editAndResend, profile } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const pendingRegenerateRef = useRef<string | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<{ id: string; content: string; subsequentCount: number } | null>(null);
   // 사용자가 위로 스크롤했는지 추적 — true면 자동 스크롤 억제
   const userScrolledRef = useRef(false);
 
@@ -53,8 +51,15 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
     if (!activeSession || isStreaming) return;
     const userMessages = activeSession.messages.filter((m) => m.role === "user");
     const lastUserMsg = userMessages[userMessages.length - 1];
-    if (lastUserMsg) sendMessage(lastUserMsg.content);
-  }, [activeSession, isStreaming, sendMessage]);
+    if (!lastUserMsg) return;
+    pendingRegenerateRef.current = lastUserMsg.content;
+    setShowRegenerateConfirm(true);
+  }, [activeSession, isStreaming]);
+
+  const handleRegenerateConfirmed = useCallback(() => {
+    if (pendingRegenerateRef.current) sendMessage(pendingRegenerateRef.current);
+    pendingRegenerateRef.current = null;
+  }, [sendMessage]);
 
   if (messages.length === 0) {
     return (
@@ -70,7 +75,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
           animation: "fi 0.4s ease",
         }}
       >
-        {/* ✦ icon */}
+        {/* star icon */}
         <div
           style={{
             width: 48,
@@ -78,17 +83,20 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 26,
             color: "var(--primary)",
-            animation: "pulse 5s ease-in-out infinite",
+            opacity: 0.6,
           }}
         >
-          ✦
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2L13.5 10.5L22 12L13.5 13.5L12 22L10.5 13.5L2 12L10.5 10.5Z" />
+          </svg>
         </div>
-        <p style={{ color: "var(--text-dim)", fontSize: 14 }}>무엇이든 물어보세요</p>
+        <p style={{ color: "var(--text-dim)", fontSize: 14 }}>
+          {(PROFILES.find((p) => p.value === profile) ?? PROFILES[0]).subtitle}
+        </p>
         {/* Suggestion chips */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 480 }}>
-          {SUGGESTIONS.map((s) => (
+          {(PROFILES.find((p) => p.value === profile) ?? PROFILES[0]).suggestions.map((s) => (
             <button
               key={s}
               onClick={() => sendMessage(s)}
@@ -135,7 +143,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
         >
           {I.folder}
-          <span>문서를 업로드하면 정확도가 높아집니다</span>
+          <span>문서를 업로드하고 폴더를 활성화하면 해당 범위만 검색합니다</span>
         </button>
       </div>
     );
@@ -169,12 +177,40 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
               isLast={idx === messages.length - 1}
               onCopy={handleCopy}
               onRegenerate={handleRegenerate}
-              onEdit={(newContent) => editAndResend(msg.id, newContent)}
+              onEdit={(newContent) => {
+                const msgIdx = messages.findIndex((m) => m.id === msg.id);
+                const subsequentCount = messages.length - msgIdx - 1;
+                if (subsequentCount > 0) {
+                  setPendingEdit({ id: msg.id, content: newContent, subsequentCount });
+                } else {
+                  editAndResend(msg.id, newContent);
+                }
+              }}
             />
           ))}
           <div ref={bottomRef} />
         </div>
       </div>
+
+      <AlertDialog
+        open={showRegenerateConfirm}
+        onOpenChange={(open) => { if (!open) setShowRegenerateConfirm(false); }}
+        title="응답 재생성"
+        description="이전 응답이 삭제되고 다시 생성됩니다. 계속하시겠습니까?"
+        actionLabel="재생성"
+        onAction={handleRegenerateConfirmed}
+      />
+      <AlertDialog
+        open={pendingEdit !== null}
+        onOpenChange={(open) => { if (!open) setPendingEdit(null); }}
+        title="이후 대화 삭제"
+        description={`편집하면 이후 ${pendingEdit?.subsequentCount}개 메시지가 삭제됩니다. 계속하시겠습니까?`}
+        actionLabel="편집 후 재전송"
+        onAction={() => {
+          if (pendingEdit) editAndResend(pendingEdit.id, pendingEdit.content);
+          setPendingEdit(null);
+        }}
+      />
 
       {/* Scroll-to-bottom button */}
       {showScrollBtn && (

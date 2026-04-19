@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useChatStore } from "../../store/chat";
 import { I } from "../../shared/ui/icons";
+import { AlertDialog } from "../../shared/ui/alert-dialog";
+import { PROFILES } from "../../shared/profiles";
 
 export default function SessionSidebar() {
-  const { sessions, activeSessionId, createSession, setActiveSession, deleteSession } =
+  const { sessions, activeSessionId, createSession, setActiveSession, deleteSession, profile } =
     useChatStore();
+  const activeProfileLabel = PROFILES.find((p) => p.value === profile)?.label ?? "";
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
     <div
@@ -74,19 +79,54 @@ export default function SessionSidebar() {
 
       <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 8px" }} />
 
+      {/* Search */}
+      {sessions.length > 0 && (
+        <div style={{ padding: "6px 8px 2px", flexShrink: 0 }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="대화 검색..."
+            style={{
+              width: "100%",
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              borderRadius: 7,
+              padding: "5px 10px",
+              fontSize: 12,
+              color: "var(--foreground)",
+              boxSizing: "border-box",
+              outline: "none",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--input)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+          />
+        </div>
+      )}
+
       {/* Recents */}
-      <div style={{ padding: "10px 14px 4px", flexShrink: 0 }}>
+      <div style={{ padding: "8px 14px 4px", flexShrink: 0 }}>
         <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
           최근
         </span>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "2px 8px" }} role="list">
-        {sessions.length === 0 && (
+        {sessions.length === 0 ? (
           <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "16px 8px" }}>
-            대화를 시작하세요
+            새 채팅을 눌러 시작하세요
           </p>
-        )}
-        {sessions.map((session) => {
+        ) : null}
+        {(() => {
+          const q = searchQuery.trim().toLowerCase();
+          const filtered = q ? sessions.filter((s) => s.title.toLowerCase().includes(q)) : sessions;
+          if (sessions.length > 0 && q && filtered.length === 0) {
+            return (
+              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "16px 8px" }}>
+                일치하는 대화가 없습니다
+              </p>
+            );
+          }
+          return filtered.map((session) => {
           const isActive = session.id === activeSessionId;
           const isHovered = hoveredId === session.id;
           return (
@@ -119,26 +159,32 @@ export default function SessionSidebar() {
                   textAlign: "left",
                 }}
               >
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 13,
-                    color: isActive ? "var(--foreground)" : "var(--text-muted)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    paddingRight: isHovered ? 22 : 0,
-                    transition: "color 0.1s",
-                  }}
-                >
-                  {session.title}
+                <span style={{ flex: 1, minWidth: 0, paddingRight: isHovered ? 22 : 0 }}>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      color: isActive ? "var(--foreground)" : "var(--text-muted)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      transition: "color 0.1s",
+                    }}
+                  >
+                    {session.title}
+                  </span>
+                  {isActive && (
+                    <span style={{ display: "block", fontSize: 10, color: "var(--text-dim)", marginTop: 1 }}>
+                      {activeProfileLabel}
+                    </span>
+                  )}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  deleteSession(session.id);
+                  setDeleteTarget({ id: session.id, title: session.title });
                 }}
                 style={{
                   position: "absolute",
@@ -166,39 +212,21 @@ export default function SessionSidebar() {
               </button>
             </div>
           );
-        })}
+        });
+        })()}
       </div>
 
-      {/* User footer */}
-      <div
-        style={{
-          flexShrink: 0,
-          borderTop: "1px solid var(--surface-2)",
-          padding: "10px 14px",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="대화 삭제"
+        description={`'${deleteTarget?.title ?? ""}'을 삭제하시겠습니까? 삭제 후 토스트에서 실행취소할 수 있습니다.`}
+        actionLabel="삭제"
+        onAction={() => {
+          if (deleteTarget) deleteSession(deleteTarget.id);
+          setDeleteTarget(null);
         }}
-      >
-        <div
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: "50%",
-            background: "var(--surface-2)",
-            border: "1px solid var(--border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          {I.user}
-        </div>
-        <span style={{ fontSize: 12, color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          사용자
-        </span>
-      </div>
+      />
     </div>
   );
 }

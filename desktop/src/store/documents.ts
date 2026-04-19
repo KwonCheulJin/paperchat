@@ -14,6 +14,7 @@ export type FolderProgress = {
   failed: number;       // 실패 수 (배지 표시용)
   currentFile: string;  // 현재 처리 중인 파일명
   currentStatus: string; // 백엔드 진행 메시지
+  hasRetry: boolean;    // 실패 파일 재시도 가능 여부
 };
 
 type DocumentsStore = {
@@ -24,6 +25,7 @@ type DocumentsStore = {
   uploadFile: (file: File) => Promise<void>;
   uploadFiles: (files: File[], folder: string) => Promise<void>;
   deleteDocument: (docId: string) => Promise<void>;
+  retryFailedUploads: () => Promise<void>;
 };
 
 // 단일 파일 SSE 스트림 소비 (내부 헬퍼)
@@ -54,6 +56,8 @@ async function consumeIngestStream(
 
 // 완료 타이머 (레이스 컨디션 방지용 클로저 변수)
 let uploadTimerId: ReturnType<typeof setTimeout> | null = null;
+// 실패 파일 재시도용 (File 객체는 zustand state에 직렬화 불가)
+let lastFailedUpload: { files: File[]; folder: string } | null = null;
 
 export const useDocumentsStore = create<DocumentsStore>((set) => ({
   documents: [],
@@ -92,6 +96,7 @@ export const useDocumentsStore = create<DocumentsStore>((set) => ({
         failed: 0,
         currentFile: "",
         currentStatus: "준비 중...",
+        hasRetry: false,
       },
     });
 
@@ -103,8 +108,11 @@ export const useDocumentsStore = create<DocumentsStore>((set) => ({
       });
     };
 
+    let localFailed = 0;
+    const failedFilesList: File[] = [];
+
     try {
-      // 순차 업로드 — Promise.all 병렬 금지
+    // 순차 업로드 — Promise.all 병렬 금지
       for (const file of files) {
         update((fp) => ({ ...fp, currentFile: file.name, currentStatus: "업로드 중..." }));
         let result: "success" | "failure";
@@ -120,6 +128,10 @@ export const useDocumentsStore = create<DocumentsStore>((set) => ({
           done: fp.done + 1,
           failed: result === "failure" ? fp.failed + 1 : fp.failed,
         }));
+        if (result === "failure") {
+          localFailed++;
+          failedFilesList.push(file);
+        }
       }
     } finally {
       // 완료 후 문서 목록 갱신 (루프 내 N+1 대신 1번만 호출)
@@ -129,22 +141,65 @@ export const useDocumentsStore = create<DocumentsStore>((set) => ({
       } catch {
         // 목록 갱신 실패는 무시
       }
-      // 3초 후 진행 상태 초기화
+      const succeeded = files.length - localFailed;
+      if (succeeded > 0) {
+        toast.success(
+          files.length === 1
+            ? `'${folderName}' 업로드됐습니다`
+            : localFailed === 0
+            ? `${succeeded}개 파일 업로드됐습니다`
+            : `${succeeded}개 파일 업로드됐습니다 (${localFailed}개 실패)`
+        );
+      }
+      if (failedFilesList.length > 0) {
+        lastFailedUpload = { files: failedFilesList, folder };
+        update((fp) => ({ ...fp, hasRetry: true, currentStatus: `${localFailed}개 실패 — 재시도 가능` }));
+      }
+      // 실패 없으면 3초, 재시도 있으면 8초 후 초기화
+      const delay = failedFilesList.length > 0 ? 8000 : 3000;
       uploadTimerId = setTimeout(() => {
         set({ folderProgress: null });
         uploadTimerId = null;
-      }, 3000);
+      }, delay);
     }
   },
 
+  retryFailedUploads: async () => {
+    if (!lastFailedUpload) return;
+    const { files, folder } = lastFailedUpload;
+    lastFailedUpload = null;
+    await useDocumentsStore.getState().uploadFiles(files, folder);
+  },
+
   deleteDocument: async (docId) => {
-    try {
-      await apiDeleteDocument(docId);
-      set((s) => ({
-        documents: s.documents.filter((d) => d.doc_id !== docId),
-      }));
-    } catch (e) {
-      toast.error(`문서 삭제 실패: ${e instanceof Error ? e.message : String(e)}`);
+    const doc = useDocumentsStore.getState().documents.find((d) => d.doc_id === docId);
+
+    // 낙관적 제거 — 5초 후 API 호출
+    set((s) => ({ documents: s.documents.filter((d) => d.doc_id !== docId) }));
+
+    let undone = false;
+    const timer = setTimeout(async () => {
+      if (undone) return;
+      try {
+        await apiDeleteDocument(docId);
+      } catch (e) {
+        if (doc) set((s) => ({ documents: [doc, ...s.documents] }));
+        toast.error(`문서 삭제 실패: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }, 5000);
+
+    if (doc) {
+      toast.success("문서가 삭제됐습니다", {
+        action: {
+          label: "실행 취소",
+          onClick: () => {
+            undone = true;
+            clearTimeout(timer);
+            set((s) => ({ documents: [doc, ...s.documents] }));
+          },
+        },
+        duration: 5000,
+      });
     }
   },
 }));

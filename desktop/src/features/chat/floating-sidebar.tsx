@@ -11,7 +11,7 @@ export default function FloatingSidebar({
   side,
   pinned,
   children,
-  triggerWidth = 8,
+  triggerWidth = 20,
 }: FloatingSidebarProps) {
   const [hovered, setHovered] = useState(false);
   const open = pinned || hovered;

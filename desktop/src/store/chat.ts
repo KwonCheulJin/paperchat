@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { chatStream, type Source, type ChatMessage } from "../lib/api";
+import type { ProfileValue } from "../shared/profiles";
 
 export type Message = {
   id: string;
@@ -8,6 +9,7 @@ export type Message = {
   content: string;
   sources?: Source[];
   streaming?: boolean;
+  interrupted?: boolean;
   createdAt: number;
 };
 
@@ -18,11 +20,14 @@ export type Session = {
   createdAt: number;
 };
 
+export type StreamingPhase = null | "fetching" | "generating";
+
 type ChatStore = {
   sessions: Session[];
   activeSessionId: string | null;
-  profile: string;
+  profile: ProfileValue;
   isStreaming: boolean;
+  streamingPhase: StreamingPhase;
   abortController: AbortController | null;
   activeFolder: string | null;
 
@@ -31,7 +36,7 @@ type ChatStore = {
   sendMessage: (content: string) => Promise<void>;
   editAndResend: (messageId: string, newContent: string) => void;
   stopStreaming: () => void;
-  setProfile: (profile: string) => void;
+  setProfile: (profile: ProfileValue) => void;
   deleteSession: (id: string) => void;
   setActiveFolder: (folder: string | null) => void;
 };
@@ -43,6 +48,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   activeSessionId: null,
   profile: "internal-general",
   isStreaming: false,
+  streamingPhase: null,
   abortController: null,
   activeFolder: null,
 
@@ -70,7 +76,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const id = genId();
       const session: Session = {
         id,
-        title: content.slice(0, 20) || "새 대화",
+        title: [...content].slice(0, 20).join("") || "새 대화",
         messages: [],
         createdAt: Date.now(),
       };
@@ -89,7 +95,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         sess.id === sessionId
           ? {
               ...sess,
-              title: sess.messages.length === 0 ? content.slice(0, 20) || "새 대화" : sess.title,
+              title: sess.messages.length === 0 ? [...content].slice(0, 20).join("") || "새 대화" : sess.title,
               messages: [
                 ...sess.messages,
                 { id: userMsgId, role: "user" as const, content, createdAt: Date.now() },
@@ -101,6 +107,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     set((s) => ({
       isStreaming: true,
+      streamingPhase: "fetching",
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId
           ? {
@@ -122,12 +129,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const controller = new AbortController();
     set({ abortController: controller });
 
+    const removeFailedMessages = () => {
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId
+            ? {
+                ...sess,
+                messages: sess.messages.filter(
+                  (m) => m.id !== assistantMsgId && m.id !== userMsgId
+                ),
+              }
+            : sess
+        ),
+      }));
+    };
+
+    let sseError = false;
+
     try {
       for await (const event of chatStream(historyMessages, profile, sessionId, activeFolder, controller.signal)) {
         if (!get().isStreaming) break;
 
         if (event.type === "sources") {
           set((s) => ({
+            streamingPhase: "generating",
             sessions: s.sessions.map((sess) =>
               sess.id === sessionId
                 ? {
@@ -154,28 +179,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                 : sess
             ),
           }));
-        } else if (event.type === "done" || event.type === "error") {
-          if (event.type === "error") {
-            set((s) => ({
-              sessions: s.sessions.map((sess) =>
-                sess.id === sessionId
-                  ? {
-                      ...sess,
-                      messages: sess.messages.filter((m) => m.id !== assistantMsgId),
-                    }
-                  : sess
-              ),
-            }));
-            toast.error(event.message);
-          }
+        } else if (event.type === "error") {
+          sseError = true;
+          removeFailedMessages();
+          toast.error(event.message);
+          break;
+        } else if (event.type === "done") {
           break;
         }
       }
     } catch (e) {
-      toast.error(`채팅 오류: ${e instanceof Error ? e.message : String(e)}`);
+      if (!sseError) {
+        removeFailedMessages();
+        toast.error("연결 오류가 발생했습니다. 다시 시도해 주세요.");
+      }
+      throw e;
     } finally {
       set((s) => ({
         isStreaming: false,
+        streamingPhase: null,
         abortController: null,
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId
@@ -189,17 +211,37 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         ),
       }));
     }
+
+    if (sseError) throw new Error("SSE error");
   },
 
   stopStreaming: () => {
-    const { abortController } = get();
+    const { abortController, activeSessionId, sessions } = get();
     abortController?.abort();
-    set({ isStreaming: false, abortController: null });
+    const session = sessions.find((s) => s.id === activeSessionId);
+    const streamingMsg = session?.messages.find((m) => m.streaming && m.role === "assistant");
+    if (streamingMsg) {
+      set((s) => ({
+        isStreaming: false,
+        abortController: null,
+        sessions: s.sessions.map((sess) =>
+          sess.id === activeSessionId
+            ? { ...sess, messages: sess.messages.map((m) => m.id === streamingMsg.id ? { ...m, interrupted: true } : m) }
+            : sess
+        ),
+      }));
+      toast("응답이 중단되었습니다", { duration: 3000 });
+    } else {
+      set({ isStreaming: false, abortController: null });
+    }
   },
 
   setProfile: (profile) => set({ profile }),
 
-  deleteSession: (id) =>
+  deleteSession: (id) => {
+    const sessions = get().sessions;
+    const index = sessions.findIndex((s) => s.id === id);
+    const session = sessions[index];
     set((s) => {
       const remaining = s.sessions.filter((sess) => sess.id !== id);
       return {
@@ -209,7 +251,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ? remaining[0]?.id ?? null
             : s.activeSessionId,
       };
-    }),
+    });
+    if (session) {
+      toast.success("대화가 삭제됐습니다", {
+        action: {
+          label: "실행 취소",
+          onClick: () =>
+            set((s) => {
+              const next = [...s.sessions];
+              const clampedIdx = Math.min(index, next.length);
+              next.splice(clampedIdx, 0, session);
+              return { sessions: next };
+            }),
+        },
+        duration: 5000,
+      });
+    }
+  },
 
   editAndResend: (messageId, newContent) => {
     const { sessions, activeSessionId, sendMessage } = get();

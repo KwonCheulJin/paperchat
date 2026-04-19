@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import { parseMarkdown } from "../../shared/ui/markdown";
@@ -15,9 +15,22 @@ interface ChatMessageProps {
   onEdit: (content: string) => void;
 }
 
+function scoreColor(score: number) {
+  if (score >= 0.7) return "oklch(0.62 0.15 145)";
+  if (score >= 0.4) return "oklch(0.70 0.13 60)";
+  return "oklch(0.55 0.18 20)";
+}
+
+function scoreLabel(score: number) {
+  if (score >= 0.7) return "높음";
+  if (score >= 0.4) return "보통";
+  return "낮음";
+}
+
 function SourceBadge({ source }: { source: Source }) {
   const [show, setShow] = useState(false);
   const label = source.filename.replace(/\.pdf$/i, "");
+  const color = scoreColor(source.score);
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       <button
@@ -59,22 +72,46 @@ function SourceBadge({ source }: { source: Source }) {
             {source.text.slice(0, 200)}
             {source.text.length > 200 ? "…" : ""}
           </p>
-          <p style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 4 }}>
-            유사도: {(source.score * 100).toFixed(1)}%
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
+            <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
+              관련도 {scoreLabel(source.score)} · {(source.score * 100).toFixed(0)}%
+            </span>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+const MAX_VISIBLE_SOURCES = 4;
+
 function SourceList({ sources }: { sources: Source[] }) {
+  const [expanded, setExpanded] = useState(false);
   if (sources.length === 0) return null;
+  const visible = expanded ? sources : sources.slice(0, MAX_VISIBLE_SOURCES);
+  const hidden = sources.length - MAX_VISIBLE_SOURCES;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-      {sources.map((s) => (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10, alignItems: "center" }}>
+      {visible.map((s) => (
         <SourceBadge key={s.chunk_id} source={s} />
       ))}
+      {!expanded && hidden > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border)",
+            borderRadius: 4,
+            padding: "2px 8px",
+            fontSize: 11,
+            color: "var(--text-dim)",
+            cursor: "pointer",
+          }}
+        >
+          +{hidden}개 더
+        </button>
+      )}
     </div>
   );
 }
@@ -117,6 +154,17 @@ export default function ChatMessage({
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
+  const [justCompleted, setJustCompleted] = useState(false);
+  const prevStreamingRef = useRef(isStreaming);
+
+  useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming && message.content && isLast && message.role === "assistant") {
+      setJustCompleted(true);
+      const t = setTimeout(() => setJustCompleted(false), 3000);
+      return () => clearTimeout(t);
+    }
+    prevStreamingRef.current = isStreaming;
+  }, [isStreaming, message.content, isLast, message.role]);
 
   const parsedContent = useMemo(
     () => message.content ? parseMarkdown(message.content) : null,
@@ -200,6 +248,9 @@ export default function ChatMessage({
                 }}
               />
               <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: 6 }}>
+                <span style={{ fontSize: 10, color: "var(--text-dim)", marginRight: "auto" }}>
+                  Esc 취소 · Ctrl+Enter 전송
+                </span>
                 <button
                   type="button"
                   onClick={handleCancelEdit}
@@ -284,13 +335,49 @@ export default function ChatMessage({
         </div>
       )}
 
+      {/* Completion signal */}
+      {justCompleted && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: 12,
+            color: "var(--success)",
+            marginTop: 5,
+            animation: "ms 0.3s ease",
+          }}
+        >
+          {I.check}
+          <span>{formatTime(ts)} · 응답 완료</span>
+        </div>
+      )}
+
       {/* Sources */}
       {message.sources && message.sources.length > 0 && !isStreaming && (
         <SourceList sources={message.sources} />
       )}
 
+      {/* Interrupted badge */}
+      {message.interrupted && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+          <span style={{
+            display: "inline-flex",
+            background: "color-mix(in oklch, var(--destructive) 10%, transparent)",
+            border: "1px solid color-mix(in oklch, var(--destructive) 22%, transparent)",
+            color: "color-mix(in oklch, var(--destructive) 75%, var(--text-dim))",
+            borderRadius: 4,
+            padding: "1px 7px",
+            fontSize: 10,
+          }}>
+            중단됨
+          </span>
+          {isLast && <Tb icon={I.refresh} tip="다시 생성" onClick={onRegenerate} />}
+        </div>
+      )}
+
       {/* Hover toolbar */}
-      {!isStreaming && message.content && hovered && (
+      {!isStreaming && message.content && !message.interrupted && hovered && (
         <div style={{ display: "flex", gap: 2, marginTop: 6 }}>
           <Tb
             icon={copied ? I.check : I.copy}
@@ -299,9 +386,18 @@ export default function ChatMessage({
             act={copied}
             activeColor="var(--success)"
           />
-          <Tb icon={I.thumbUp} tip="좋아요 (준비 중)" disabled />
-          <Tb icon={I.thumbDown} tip="싫어요 (준비 중)" disabled />
           {isLast && <Tb icon={I.refresh} tip="다시 생성" onClick={onRegenerate} />}
+        </div>
+      )}
+      {!isStreaming && message.content && message.interrupted && hovered && (
+        <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
+          <Tb
+            icon={copied ? I.check : I.copy}
+            tip={copied ? "복사됨" : "복사"}
+            onClick={handleCopy}
+            act={copied}
+            activeColor="var(--success)"
+          />
         </div>
       )}
     </div>

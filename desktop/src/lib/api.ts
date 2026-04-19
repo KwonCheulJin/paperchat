@@ -31,7 +31,11 @@ export type ChatMessage = {
 
 // SSE 스트림을 읽어 이벤트를 yield하는 공통 제너레이터
 async function* readSseStream(res: Response): AsyncGenerator<SseEvent> {
-  const reader = res.body!.getReader();
+  if (!res.body) {
+    yield { type: "error", message: "응답 스트림을 읽을 수 없습니다" };
+    return;
+  }
+  const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
 
@@ -40,7 +44,7 @@ async function* readSseStream(res: Response): AsyncGenerator<SseEvent> {
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
-    buffer = lines.pop()!;
+    buffer = lines.pop() ?? "";
     for (const line of lines) {
       if (line.startsWith("data: ")) {
         try {

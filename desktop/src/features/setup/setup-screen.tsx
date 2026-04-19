@@ -1,6 +1,21 @@
 import { UseModelStateReturn } from "../../hooks/use-model-state";
 import { GlobalStyles } from "../../shared/ui/global-styles";
 
+const ERROR_ADVICE: Array<{ patterns: string[]; advice: string }> = [
+  { patterns: ["disk", "space", "enospc", "storage", "no space"], advice: "디스크 여유 공간을 확인하세요." },
+  { patterns: ["network", "connect", "timeout", "econnrefused", "fetch"], advice: "인터넷 연결을 확인하세요." },
+  { patterns: ["permission", "access", "eacces", "eperm", "denied"], advice: "파일 쓰기 권한을 확인하거나 관리자 권한으로 실행하세요." },
+];
+
+function getErrorAdvice(reason: string | null): string | null {
+  if (!reason) return null;
+  const lower = reason.toLowerCase();
+  for (const { patterns, advice } of ERROR_ADVICE) {
+    if (patterns.some((p) => lower.includes(p))) return advice;
+  }
+  return null;
+}
+
 type Props = { modelState: UseModelStateReturn };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -175,11 +190,13 @@ export default function SetupScreen({ modelState }: Props) {
               >
                 <div
                   style={{
-                    width: `${downloadProgress.percent}%`,
+                    width: "100%",
                     height: "100%",
                     background: "var(--primary)",
                     borderRadius: 999,
-                    transition: "width 0.3s ease",
+                    transform: `scaleX(${downloadProgress.percent / 100})`,
+                    transformOrigin: "left",
+                    transition: "transform 0.3s ease",
                   }}
                 />
               </div>
@@ -203,6 +220,11 @@ export default function SetupScreen({ modelState }: Props) {
               }}
             >
               {failureReason}
+              {getErrorAdvice(failureReason) && (
+                <p style={{ marginTop: 6, color: "var(--text-secondary)", fontWeight: 500 }}>
+                  💡 {getErrorAdvice(failureReason)}
+                </p>
+              )}
             </div>
           )}
 

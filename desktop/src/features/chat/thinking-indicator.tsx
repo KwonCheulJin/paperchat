@@ -1,43 +1,43 @@
-import { useState, useEffect } from "react";
+import { useChatStore } from "../../store/chat";
 
-const LABELS = ["응답 생성 중...", "컨텍스트 검색 중...", "분석 중..."];
+const PHASE_LABELS: Record<string, string> = {
+  fetching: "문서 검색 중...",
+  generating: "응답 생성 중...",
+};
+
+const BARS = [
+  { id: "bar-1", height: 8, delay: 0 },
+  { id: "bar-2", height: 13, delay: 0.18 },
+  { id: "bar-3", height: 10, delay: 0.36 },
+];
 
 export default function ThinkingIndicator() {
-  const [labelIdx, setLabelIdx] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLabelIdx((i) => (i + 1) % LABELS.length);
-    }, 2000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const BAR_HEIGHTS = [8, 13, 10];
+  const streamingPhase = useChatStore((s) => s.streamingPhase);
+  const label = PHASE_LABELS[streamingPhase ?? ""] ?? "처리 중...";
 
   return (
     <div
       role="status"
-      aria-label="AI 응답 생성 중"
+      aria-label={label}
       style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}
     >
-      {/* 수직 바 인디케이터 — transform/opacity 기반, 레이아웃 변경 없음 */}
       <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-        {BAR_HEIGHTS.map((h, i) => (
+        {BARS.map(({ id, height, delay }) => (
           <div
-            key={i}
+            key={id}
             style={{
               width: 2,
-              height: h,
+              height,
               borderRadius: 1,
               background: "var(--primary)",
               transformOrigin: "center",
-              animation: `bar 1.4s cubic-bezier(0.4, 0, 0.6, 1) ${i * 0.18}s infinite`,
+              animation: `bar 1.4s cubic-bezier(0.4, 0, 0.6, 1) ${delay}s infinite`,
             }}
           />
         ))}
       </div>
       <span style={{ color: "var(--text-dim)", fontSize: 12, animation: "fi 0.4s ease" }}>
-        {LABELS[labelIdx]}
+        {label}
       </span>
     </div>
   );

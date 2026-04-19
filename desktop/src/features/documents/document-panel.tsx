@@ -4,6 +4,7 @@ import { useDocumentsStore } from "../../store/documents";
 import { useChatStore } from "../../store/chat";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
+import { AlertDialog } from "../../shared/ui/alert-dialog";
 import type { DocumentInfo } from "../../lib/api";
 
 type Props = {
@@ -21,6 +22,7 @@ export default function DocumentPanel({ onClose }: Props) {
     uploadFile,
     uploadFiles,
     deleteDocument,
+    retryFailedUploads,
   } = useDocumentsStore();
   const activeFolder = useChatStore((s) => s.activeFolder);
   const setActiveFolder = useChatStore((s) => s.setActiveFolder);
@@ -30,17 +32,23 @@ export default function DocumentPanel({ onClose }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [folderExpanded, setFolderExpanded] = useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = useState<DocumentInfo | null>(null);
+  const [showFolderHint, setShowFolderHint] = useState(
+    () => localStorage.getItem("seenFolderHint") !== "1"
+  );
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
 
-  // 폴더 input에 webkitdirectory 속성 부여 (TS가 JSX 속성으로 직접 인식 못함)
   useEffect(() => {
-    if (folderInputRef.current) {
-      folderInputRef.current.setAttribute("webkitdirectory", "");
+    if (activeFolder && showFolderHint) {
+      localStorage.setItem("seenFolderHint", "1");
+      setShowFolderHint(false);
     }
-  }, []);
+  }, [activeFolder, showFolderHint]);
+
 
   const handleSingleFile = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -71,7 +79,18 @@ export default function DocumentPanel({ onClose }: Props) {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
-    handleSingleFile(e.dataTransfer.files);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const pdfs = Array.from(files).filter((f) => f.name.toLowerCase().endsWith(".pdf"));
+    if (pdfs.length === 0) {
+      toast.error("PDF 파일만 업로드 가능합니다.");
+      return;
+    }
+    if (pdfs.length === 1) {
+      uploadFile(pdfs[0]);
+    } else {
+      uploadFiles(pdfs, "");
+    }
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -95,7 +114,15 @@ export default function DocumentPanel({ onClose }: Props) {
 
   // 폴더별 그룹핑 + 정렬된 키 (이름 있는 폴더 알파벳순, "(기타)"는 마지막)
   const { groups, orderedKeys } = useMemo(() => {
-    const g = documents.reduce<Record<string, DocumentInfo[]>>((acc, d) => {
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q
+      ? documents.filter(
+          (d) =>
+            d.filename.toLowerCase().includes(q) ||
+            (d.folder ?? "").toLowerCase().includes(q)
+        )
+      : documents;
+    const g = filtered.reduce<Record<string, DocumentInfo[]>>((acc, d) => {
       const key = d.folder || OTHER_KEY;
       (acc[key] ??= []).push(d);
       return acc;
@@ -105,7 +132,7 @@ export default function DocumentPanel({ onClose }: Props) {
       .sort((a, b) => a.localeCompare(b, "ko"));
     const keys = OTHER_KEY in g ? [...named, OTHER_KEY] : named;
     return { groups: g, orderedKeys: keys };
-  }, [documents]);
+  }, [documents, searchQuery]);
 
   const isFolderExpanded = (key: string) => folderExpanded[key] ?? true;
 
@@ -114,9 +141,14 @@ export default function DocumentPanel({ onClose }: Props) {
   };
 
   const onActivateToggle = (folderName: string) => {
-    // "(기타)" 그룹은 활성화 대상이 아님 — 빈 folder는 전체 검색에 포함
     if (folderName === OTHER_KEY) return;
-    setActiveFolder(activeFolder === folderName ? null : folderName);
+    if (activeFolder === folderName) {
+      setActiveFolder(null);
+      toast("전체 문서 검색으로 돌아갔습니다");
+    } else {
+      setActiveFolder(folderName);
+      toast.success(`'${folderName}' 폴더만 검색에 사용됩니다`);
+    }
   };
 
   return (
@@ -183,9 +215,30 @@ export default function DocumentPanel({ onClose }: Props) {
                 </span>
               </div>
               {folderProgress.failed > 0 && (
-                <span style={{ fontSize: 11, color: "var(--warning)", flexShrink: 0, marginLeft: 8 }}>
-                  ⚠ {folderProgress.failed}
+                <span
+                  title={`${folderProgress.failed}개 파일 처리 실패 — 각 파일별 오류는 알림을 확인하세요`}
+                  style={{ fontSize: 11, color: "var(--warning)", flexShrink: 0, marginLeft: 8, cursor: "help" }}
+                >
+                  ⚠ {folderProgress.failed}개 실패
                 </span>
+              )}
+              {folderProgress.hasRetry && (
+                <button
+                  onClick={retryFailedUploads}
+                  style={{
+                    flexShrink: 0,
+                    marginLeft: 6,
+                    background: "transparent",
+                    border: "1px solid var(--warning)",
+                    borderRadius: 4,
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    color: "var(--warning)",
+                    cursor: "pointer",
+                  }}
+                >
+                  재시도
+                </button>
               )}
             </div>
             <div
@@ -203,10 +256,12 @@ export default function DocumentPanel({ onClose }: Props) {
               <div
                 style={{
                   height: "100%",
-                  width: `${(folderProgress.done / folderProgress.total) * 100}%`,
+                  width: "100%",
                   background: "var(--primary)",
                   borderRadius: 2,
-                  transition: "width 0.3s ease",
+                  transform: `scaleX(${folderProgress.done / folderProgress.total})`,
+                  transformOrigin: "left",
+                  transition: "transform 0.3s ease",
                 }}
               />
             </div>
@@ -314,6 +369,7 @@ export default function DocumentPanel({ onClose }: Props) {
           ref={folderInputRef}
           type="file"
           multiple
+          {...{ webkitdirectory: "" }}
           style={{ display: "none" }}
           onChange={(e) => {
             handleFolderSelect(e.target.files);
@@ -325,10 +381,37 @@ export default function DocumentPanel({ onClose }: Props) {
 
       <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 10px" }} />
 
+      {/* Search */}
+      {documents.length > 0 && (
+        <div style={{ padding: "6px 10px 2px", flexShrink: 0 }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="파일명 또는 폴더 검색..."
+            style={{
+              width: "100%",
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              borderRadius: 7,
+              padding: "5px 10px",
+              fontSize: 12,
+              color: "var(--foreground)",
+              boxSizing: "border-box",
+              outline: "none",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--input)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+          />
+        </div>
+      )}
+
       {/* Documents folder tree */}
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}>
         <button
           onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={expanded ? "문서 목록 접기" : "문서 목록 펼치기"}
           style={{
             display: "flex",
             alignItems: "center",
@@ -338,7 +421,7 @@ export default function DocumentPanel({ onClose }: Props) {
             border: "none",
             padding: "4px 2px",
             cursor: "pointer",
-            marginBottom: 4,
+            marginBottom: 2,
           }}
         >
           <span style={{ color: "var(--text-dim)", display: "flex" }}>
@@ -356,12 +439,21 @@ export default function DocumentPanel({ onClose }: Props) {
             인덱싱된 문서 ({documents.length})
           </span>
         </button>
+        {expanded && documents.length > 0 && showFolderHint && (
+          <p style={{ fontSize: 10, color: "var(--text-dim)", padding: "0 2px 6px", lineHeight: 1.4 }}>
+            체크 버튼으로 폴더를 활성화하면 해당 폴더만 검색에 사용됩니다
+          </p>
+        )}
 
         {expanded && (
           <>
             {documents.length === 0 ? (
               <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "12px 0" }}>
                 문서가 없습니다
+              </p>
+            ) : orderedKeys.length === 0 && searchQuery.trim() ? (
+              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "12px 0" }}>
+                일치하는 문서가 없습니다
               </p>
             ) : (
               orderedKeys.map((key) => {
@@ -426,6 +518,8 @@ export default function DocumentPanel({ onClose }: Props) {
                         <button
                           onClick={() => onActivateToggle(key)}
                           title={isActive ? "활성 폴더 해제" : "활성 폴더로 지정 (채팅 스코프 제한)"}
+                          aria-label={isActive ? `${label} 폴더 활성화 해제` : `${label} 폴더만 검색에 사용`}
+                          aria-pressed={isActive}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -499,7 +593,7 @@ export default function DocumentPanel({ onClose }: Props) {
                           <Tb
                             icon={I.trash}
                             tip="삭제"
-                            onClick={() => deleteDocument(doc.doc_id)}
+                            onClick={() => setDeleteTarget(doc)}
                           />
                         </div>
                       ))}
@@ -510,6 +604,17 @@ export default function DocumentPanel({ onClose }: Props) {
           </>
         )}
       </div>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="문서 삭제"
+        description={`'${deleteTarget?.filename ?? ""}'을 삭제하시겠습니까? 인덱싱된 데이터가 모두 제거되며 되돌릴 수 없습니다.`}
+        onAction={() => {
+          if (deleteTarget) deleteDocument(deleteTarget.doc_id);
+          setDeleteTarget(null);
+        }}
+      />
 
       <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 10px" }} />
 

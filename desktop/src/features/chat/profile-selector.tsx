@@ -1,14 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useChatStore } from "../../store/chat";
 import { I } from "../../shared/ui/icons";
-
-// TODO: GET /profiles 엔드포인트 구현 후 API에서 동적 로드로 교체
-const PROFILES = [
-  { value: "internal-general", label: "사내 범용" },
-  { value: "private-equity", label: "사모펀드 투자 분석" },
-  { value: "legal", label: "법무 계약서 검토" },
-  { value: "research", label: "R&D 기술 문서" },
-];
+import { PROFILES } from "../../shared/profiles";
 
 export default function ProfileSelector() {
   const { profile, setProfile } = useChatStore();
@@ -31,27 +24,32 @@ export default function ProfileSelector() {
     <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`프로필 선택: ${current.label}`}
         style={{
           display: "flex",
           alignItems: "center",
           gap: 5,
-          background: "transparent",
-          border: "1px solid var(--border)",
+          background: "var(--surface-2)",
+          border: "1px solid var(--input)",
           borderRadius: 6,
           padding: "4px 8px",
           fontSize: 12,
-          color: "var(--text-muted)",
+          color: "var(--text-secondary)",
           cursor: "pointer",
-          transition: "color 0.15s, border-color 0.15s",
+          transition: "color 0.15s, border-color 0.15s, background 0.15s",
           whiteSpace: "nowrap",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = "var(--text-secondary)";
-          e.currentTarget.style.borderColor = "var(--input)";
+          e.currentTarget.style.color = "var(--foreground)";
+          e.currentTarget.style.borderColor = "var(--primary)";
+          e.currentTarget.style.background = "color-mix(in oklch, var(--primary) 5%, var(--surface-2))";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.color = "var(--text-muted)";
-          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.color = "var(--text-secondary)";
+          e.currentTarget.style.borderColor = "var(--input)";
+          e.currentTarget.style.background = "var(--surface-2)";
         }}
       >
         <span>{current.label}</span>
@@ -107,7 +105,8 @@ export default function ProfileSelector() {
                 }
               }}
             >
-              {p.label}
+              <span style={{ display: "block" }}>{p.label}</span>
+              <span style={{ display: "block", fontSize: 10, color: "var(--text-dim)", marginTop: 1 }}>{p.desc}</span>
             </button>
           ))}
         </div>
