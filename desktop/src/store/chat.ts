@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import { chatStream, type Source, type ChatMessage } from "../lib/api";
+import { chatStream, submitFeedback, type Source, type ChatMessage, type EntityMeta } from "../lib/api";
 import type { ProfileValue } from "../shared/profiles";
+
+export type { EntityMeta };
 
 export type Message = {
   id: string;
@@ -11,6 +13,8 @@ export type Message = {
   streaming?: boolean;
   interrupted?: boolean;
   createdAt: number;
+  entityMeta?: EntityMeta;
+  feedback?: "up" | "down";
 };
 
 export type Session = {
@@ -39,6 +43,8 @@ type ChatStore = {
   setProfile: (profile: ProfileValue) => void;
   deleteSession: (id: string) => void;
   setActiveFolder: (folder: string | null) => void;
+  fetchMoreEntities: (messageId: string) => Promise<void>;
+  setFeedback: (messageId: string, rating: "up" | "down") => Promise<void>;
 };
 
 const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -159,6 +165,35 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                     ...sess,
                     messages: sess.messages.map((m) =>
                       m.id === assistantMsgId ? { ...m, sources: event.sources } : m
+                    ),
+                  }
+                : sess
+            ),
+          }));
+        } else if (event.type === "entity_result") {
+          const meta: EntityMeta = {
+            entityType: event.entity_type,
+            totalCount: event.total_count,
+            hasMore: event.has_more,
+            nextOffset: event.next_offset,
+            folder: event.folder,
+            docId: event.doc_id,
+          };
+          set((s) => ({
+            streamingPhase: null,
+            sessions: s.sessions.map((sess) =>
+              sess.id === sessionId
+                ? {
+                    ...sess,
+                    messages: sess.messages.map((m) =>
+                      m.id === assistantMsgId
+                        ? {
+                            ...m,
+                            content: m.content + event.content,
+                            streaming: false,
+                            entityMeta: event.has_more ? meta : undefined,
+                          }
+                        : m
                     ),
                   }
                 : sess
@@ -286,4 +321,80 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setActiveFolder: (folder) => set({ activeFolder: folder }),
+
+  setFeedback: async (messageId, rating) => {
+    const { activeSessionId, sessions } = get();
+    const session = sessions.find((s) => s.id === activeSessionId);
+    const message = session?.messages.find((m) => m.id === messageId);
+    const nextRating = message?.feedback === rating ? undefined : rating;
+
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === activeSessionId
+          ? {
+              ...sess,
+              messages: sess.messages.map((m) =>
+                m.id === messageId ? { ...m, feedback: nextRating } : m
+              ),
+            }
+          : sess
+      ),
+    }));
+
+    if (nextRating) {
+      await submitFeedback(messageId, nextRating, activeSessionId);
+    }
+  },
+
+  fetchMoreEntities: async (messageId) => {
+    const { activeSessionId, sessions } = get();
+    const session = sessions.find((s) => s.id === activeSessionId);
+    const message = session?.messages.find((m) => m.id === messageId);
+    if (!message?.entityMeta) return;
+
+    const { entityMeta } = message;
+
+    for await (const event of chatStream(
+      [],
+      "internal-general",
+      undefined,
+      undefined,
+      undefined,
+      {
+        entity_type: entityMeta.entityType,
+        folder: entityMeta.folder,
+        doc_id: entityMeta.docId,
+        offset: entityMeta.nextOffset,
+      },
+    )) {
+      if (event.type === "entity_result") {
+        const newMeta: EntityMeta = {
+          entityType: event.entity_type,
+          totalCount: event.total_count,
+          hasMore: event.has_more,
+          nextOffset: event.next_offset,
+          folder: event.folder,
+          docId: event.doc_id,
+        };
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === activeSessionId
+              ? {
+                  ...sess,
+                  messages: sess.messages.map((m) =>
+                    m.id === messageId
+                      ? {
+                          ...m,
+                          content: m.content + "\n" + event.content,
+                          entityMeta: event.has_more ? newMeta : undefined,
+                        }
+                      : m
+                  ),
+                }
+              : sess
+          ),
+        }));
+      }
+    }
+  },
 }));

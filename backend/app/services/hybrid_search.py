@@ -9,6 +9,7 @@ RRF (Reciprocal Rank Fusion):
 의미적 유사도는 dense가 강하므로 융합이 효과적.
 """
 from __future__ import annotations
+from concurrent.futures import ThreadPoolExecutor
 
 from app.services.vector_store import query_dense
 from app.core.db import get_sqlite
@@ -16,6 +17,9 @@ from app.core.glossary import expand_query as _expand_query
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# dense + BM25 병렬 실행용 전용 풀 (요청당 2스레드)
+_search_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="search")
 
 RRF_K = 60  # RRF 상수 (표준값)
 
@@ -119,8 +123,11 @@ def hybrid_search(
     expanded = _expand_query(query)
     logger.info("hybrid_search", query=query[:50], expanded=expanded[:50], folder=folder)
 
-    dense = query_dense(expanded, n_results=n_dense, folder=folder)
-    bm25 = query_bm25(expanded, n_results=n_bm25, folder=folder)
+    # dense(ChromaDB ANN)와 BM25(SQLite FTS5)는 독립적이므로 병렬 실행
+    dense_fut = _search_pool.submit(query_dense, expanded, n_dense, folder)
+    bm25_fut = _search_pool.submit(query_bm25, expanded, n_bm25, folder)
+    dense = dense_fut.result()
+    bm25 = bm25_fut.result()
 
     merged = _rrf_merge(dense, bm25, top_k=top_k)
     logger.info("hybrid_search_done", dense=len(dense), bm25=len(bm25), merged=len(merged))

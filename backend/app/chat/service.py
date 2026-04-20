@@ -26,6 +26,14 @@ from app.services.llm_client import stream_chat
 from app.services.priority_scheduler import get_scheduler
 from app.services.semantic_cache import get_cache
 from app.core.logging_config import get_logger
+from app.core.entity_patterns import (
+    classify_query_intent,
+    detect_entity_type,
+    detect_doc_scope,
+    query_doc_entities,
+    format_entity_response,
+    format_empty_entity_message,
+)
 from app.chat.schemas import ChatRequest
 
 logger = get_logger(__name__)
@@ -47,6 +55,20 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
         if msg.role == "user":
             question = msg.content
             break
+
+    # continuation 요청: 엔티티 페이지네이션 (RAG 전체 건너뜀)
+    if request.continuation:
+        cont = request.continuation
+        page = query_doc_entities(
+            cont.folder,
+            cont.entity_type,
+            doc_id=cont.doc_id,
+            offset=cont.offset,
+        )
+        ev = format_entity_response(page)
+        yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'cached': False}, ensure_ascii=False)}\n\n"
+        return
 
     if not question:
         yield f"data: {json.dumps({'type': 'error', 'message': '질문이 없습니다.'}, ensure_ascii=False)}\n\n"
@@ -76,7 +98,34 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
 
     loop = asyncio.get_event_loop()
 
-    # 4. Hybrid Search (top-50) — CPU bound, executor로 실행
+    # 4. 쿼리 의도 분류 + 엔티티 B-경로
+    top_k = 3
+    skip_cache = False
+    intent = classify_query_intent(question)
+
+    if intent == "enumeration":
+        skip_cache = True
+        entity_type = detect_entity_type(question)
+
+        if entity_type:
+            doc_id = detect_doc_scope(question, request.folder or "")
+            page = query_doc_entities(request.folder or "", entity_type, doc_id=doc_id)
+
+            if page.total_count == 0:
+                # 빈 결과 → top_k=15 fallback (일반 RAG 계속)
+                empty_ev = format_empty_entity_message(entity_type)
+                yield f"data: {json.dumps(empty_ev, ensure_ascii=False)}\n\n"
+                top_k = 15
+            else:
+                ev = format_entity_response(page)
+                yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'cached': False}, ensure_ascii=False)}\n\n"
+                logger.info("entity_direct_response", entity_type=entity_type, count=page.total_count)
+                return
+        else:
+            top_k = 15
+
+    # 5. Hybrid Search (top-50) — CPU bound, executor로 실행
     try:
         search_results = await loop.run_in_executor(
             None,
@@ -87,24 +136,25 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
         yield f"data: {json.dumps({'type': 'error', 'message': '검색 중 오류가 발생했습니다.'}, ensure_ascii=False)}\n\n"
         return
 
-    # 5. Cross-Encoder Rerank → top-3 — CPU bound, executor로 실행
+    # 6. Cross-Encoder Rerank → top_k (기본 3, 열거 쿼리 15) — CPU bound, executor로 실행
     top_chunks = await loop.run_in_executor(
-        None, functools.partial(rerank, question, search_results, top_k=3)
+        None, functools.partial(rerank, question, search_results, top_k=top_k)
     )
 
-    # 6. 부모 섹션 텍스트 확장
+    # 7. 부모 섹션 텍스트 확장
     parent_ids = [c["parent_id"] for c in top_chunks if c.get("parent_id")]
     parent_texts: dict[str, str] = {}
     if parent_ids:
         parent_texts = await loop.run_in_executor(None, get_parent_texts, parent_ids)
 
-    # 부모 텍스트가 있으면 chunk 텍스트를 부모 섹션으로 교체
+    # 부모 텍스트가 있으면 chunk 텍스트를 부모 섹션으로 교체 (LLM 컨텍스트 토큰 제한)
+    MAX_CHUNK_CHARS = 1200  # 한국어 기준 약 600 토큰
     expanded_chunks = []
     for chunk in top_chunks:
         c = dict(chunk)
         pid = c.get("parent_id", "")
         if pid and pid in parent_texts:
-            c["text"] = parent_texts[pid]
+            c["text"] = parent_texts[pid][:MAX_CHUNK_CHARS]
         expanded_chunks.append(c)
 
     # sources 정보 구성 (원본 텍스트 앞 200자)
@@ -148,8 +198,8 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
     # 출력 검증 (경고 추가 등 — 이미 yield된 토큰과 별도로 전체 응답 검증)
     validated = validate_output(full_answer)
 
-    # 10. SemanticCache 저장
-    if validated:
+    # 10. SemanticCache 저장 (열거 쿼리는 건너뜀 — 매번 최신 DB 조회 보장)
+    if validated and not skip_cache:
         await cache.put(question, validated)
 
     yield f"data: {json.dumps({'type': 'done', 'cached': False}, ensure_ascii=False)}\n\n"

@@ -3,6 +3,7 @@ import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import { parseMarkdown } from "../../shared/ui/markdown";
 import ThinkingIndicator from "./thinking-indicator";
+import { useChatStore } from "../../store/chat";
 import type { Message } from "../../store/chat";
 import type { Source } from "../../lib/api";
 
@@ -142,6 +143,108 @@ export function ErrorMsg({ message }: { message: string }) {
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", hour12: true });
 
+function ContinueButton({ messageId, meta }: { messageId: string; meta: NonNullable<Message["entityMeta"]> }) {
+  const [loading, setLoading] = useState(false);
+  const fetchMoreEntities = useChatStore((s) => s.fetchMoreEntities);
+
+  const rangeStart = meta.nextOffset + 1;
+  const rangeEnd = Math.min(meta.nextOffset + 50, meta.totalCount);
+  const remaining = meta.totalCount - meta.nextOffset;
+
+  const handleClick = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      await fetchMoreEntities(messageId);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      {/* 구분선 — 데이터 연속성 표시 */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 10,
+        }}
+      >
+        <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--text-dim)",
+            letterSpacing: "0.06em",
+            fontVariantNumeric: "tabular-nums",
+            flexShrink: 0,
+          }}
+        >
+          {meta.nextOffset} / {meta.totalCount}
+        </span>
+        <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={loading}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 12px",
+          background: "transparent",
+          border: "1px solid var(--border)",
+          borderRadius: 5,
+          fontSize: 12,
+          color: loading ? "var(--text-dim)" : "var(--text-secondary)",
+          cursor: loading ? "default" : "pointer",
+          letterSpacing: "0.01em",
+          fontFamily: "inherit",
+          lineHeight: 1.5,
+          transition: "color 0.12s, border-color 0.12s",
+        }}
+        onMouseEnter={(e) => {
+          if (!loading) {
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--input)";
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--foreground)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!loading) {
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
+          }
+        }}
+      >
+        {loading ? (
+          <span style={{ opacity: 0.45, letterSpacing: "0.15em" }}>···</span>
+        ) : (
+          <>
+            <span
+              style={{
+                color: "var(--primary)",
+                fontVariantNumeric: "tabular-nums",
+                fontSize: 11,
+                opacity: 0.85,
+              }}
+            >
+              {rangeStart}–{rangeEnd}번째
+            </span>
+            <span>이어서 작성하기</span>
+            <span style={{ color: "var(--text-dim)", fontSize: 11 }}>
+              · 나머지 {remaining}개
+            </span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 export default function ChatMessage({
   message,
   isStreaming,
@@ -150,7 +253,7 @@ export default function ChatMessage({
   onRegenerate,
   onEdit,
 }: ChatMessageProps) {
-  const [hovered, setHovered] = useState(false);
+  const setFeedback = useChatStore((s) => s.setFeedback);
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
@@ -213,8 +316,6 @@ export default function ChatMessage({
           padding: "3px 0",
           animation: "ms 0.25s ease",
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
       >
         <div style={{ maxWidth: "72%" }}>
           {editing ? (
@@ -299,13 +400,11 @@ export default function ChatMessage({
               >
                 {message.content}
               </div>
-              {hovered && (
-                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: 4 }}>
-                  <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{formatTime(ts)}</span>
-                  <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="var(--success)" />
-                  <Tb icon={I.edit} tip="편집" onClick={() => setEditing(true)} disabled={isStreaming} />
-                </div>
-              )}
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: 4 }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)" }}>{formatTime(ts)}</span>
+                <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="var(--success)" />
+                <Tb icon={I.edit} tip="편집" onClick={() => setEditing(true)} disabled={isStreaming} />
+              </div>
             </>
           )}
         </div>
@@ -317,8 +416,6 @@ export default function ChatMessage({
   return (
     <div
       style={{ display: "flex", flexDirection: "column", padding: "3px 0", animation: "ms 0.25s ease" }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       {/* Thinking indicator — streaming with no content yet */}
       {isStreaming && !message.content && <ThinkingIndicator />}
@@ -358,6 +455,11 @@ export default function ChatMessage({
         <SourceList sources={message.sources} />
       )}
 
+      {/* 이어서 작성하기 버튼 (엔티티 페이지네이션) */}
+      {!isStreaming && message.entityMeta?.hasMore && (
+        <ContinueButton messageId={message.id} meta={message.entityMeta} />
+      )}
+
       {/* Interrupted badge */}
       {message.interrupted && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
@@ -376,9 +478,9 @@ export default function ChatMessage({
         </div>
       )}
 
-      {/* Hover toolbar */}
-      {!isStreaming && message.content && !message.interrupted && hovered && (
-        <div style={{ display: "flex", gap: 2, marginTop: 6 }}>
+      {/* Toolbar */}
+      {!isStreaming && message.content && (
+        <div style={{ display: "flex", alignItems: "center", gap: 2, marginTop: 6 }}>
           <Tb
             icon={copied ? I.check : I.copy}
             tip={copied ? "복사됨" : "복사"}
@@ -386,17 +488,21 @@ export default function ChatMessage({
             act={copied}
             activeColor="var(--success)"
           />
-          {isLast && <Tb icon={I.refresh} tip="다시 생성" onClick={onRegenerate} />}
-        </div>
-      )}
-      {!isStreaming && message.content && message.interrupted && hovered && (
-        <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
+          {isLast && !message.interrupted && <Tb icon={I.refresh} tip="다시 생성" onClick={onRegenerate} />}
+          <div style={{ width: 1, height: 14, background: "var(--border)", margin: "0 4px", flexShrink: 0 }} />
           <Tb
-            icon={copied ? I.check : I.copy}
-            tip={copied ? "복사됨" : "복사"}
-            onClick={handleCopy}
-            act={copied}
+            icon={I.thumbUp}
+            tip="도움이 됐어요"
+            onClick={() => setFeedback(message.id, "up")}
+            act={message.feedback === "up"}
             activeColor="var(--success)"
+          />
+          <Tb
+            icon={I.thumbDown}
+            tip="도움이 안 됐어요"
+            onClick={() => setFeedback(message.id, "down")}
+            act={message.feedback === "down"}
+            activeColor="var(--destructive)"
           />
         </div>
       )}

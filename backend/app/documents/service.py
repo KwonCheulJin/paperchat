@@ -18,6 +18,7 @@ import uuid
 from typing import AsyncGenerator
 
 from app.core.db import get_sqlite
+from app.core.entity_patterns import extract_entities
 from app.core.logging_config import get_logger
 from app.services.priority_scheduler import get_scheduler
 from app.services.vector_store import upsert_chunks
@@ -445,6 +446,23 @@ async def ingest_pdf(
             "type": "progress",
             "message": f"임베딩 중... ({processed}/{total_para} 청크)",
         })
+
+    # 5.5. 엔티티 추출 + SQLite 저장
+    all_text = "\n".join(p["text"] for p in paragraph_chunks)
+    entities = extract_entities(all_text, doc_id)
+    if entities:
+        conn = get_sqlite()
+        conn.executemany(
+            "INSERT OR IGNORE INTO doc_entities(id, doc_id, entity_type, value, context, chunk_id)"
+            " VALUES(?,?,?,?,?,?)",
+            [(e["id"], e["doc_id"], e["entity_type"], e["value"], e["context"], e["chunk_id"])
+             for e in entities],
+        )
+        conn.execute(
+            "UPDATE documents SET migration_status='done' WHERE id=?", (doc_id,)
+        )
+        conn.commit()
+        logger.info("entities_extracted", doc_id=doc_id, count=len(entities))
 
     # 6. 백그라운드 온톨로지 큐잉
     get_scheduler().enqueue_ontology(doc_id, paragraph_chunks)

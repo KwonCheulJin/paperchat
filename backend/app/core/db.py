@@ -87,6 +87,26 @@ def init_db_schema() -> None:
             retrieval_ms INTEGER,
             cache_hit INTEGER
         );
+        CREATE TABLE IF NOT EXISTS doc_entities (
+            id TEXT PRIMARY KEY,
+            doc_id TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            value TEXT NOT NULL,
+            context TEXT,
+            chunk_id TEXT,
+            FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_doc_entities_doc
+            ON doc_entities(doc_id, entity_type);
+        CREATE TABLE IF NOT EXISTS message_feedback (
+            id TEXT PRIMARY KEY,
+            session_id TEXT,
+            message_id TEXT NOT NULL,
+            rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_feedback_session
+            ON message_feedback(session_id);
     """)
 
     # 마이그레이션: 기존 DB에 folder 컬럼이 없으면 추가
@@ -95,5 +115,7 @@ def init_db_schema() -> None:
     }
     if "folder" not in existing_cols:
         conn.execute("ALTER TABLE documents ADD COLUMN folder TEXT DEFAULT ''")
+    if "migration_status" not in existing_cols:
+        conn.execute("ALTER TABLE documents ADD COLUMN migration_status TEXT DEFAULT NULL")
 
     conn.commit()

@@ -14,6 +14,7 @@
 """
 import json
 import os
+from functools import lru_cache
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -37,6 +38,7 @@ _DEFAULT_PROFILE: dict = {
 }
 
 
+@lru_cache(maxsize=16)
 def load_profile(profile_name: str) -> dict:
     """backend/profiles/{profile_name}.json 로드. 없으면 internal-general 사용."""
     profile_path = os.path.join(PROFILES_DIR, f"{profile_name}.json")

@@ -5,6 +5,7 @@
 최대 크기: 500개 (LRU 제거)
 """
 from __future__ import annotations
+import asyncio
 import time
 from collections import OrderedDict
 import numpy as np
@@ -13,7 +14,7 @@ from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-SIMILARITY_THRESHOLD = 0.95
+SIMILARITY_THRESHOLD = 0.90
 MAX_CACHE_SIZE = 500
 
 
@@ -33,7 +34,8 @@ class SemanticCache:
         """유사 질문이 있으면 캐시된 답변 반환."""
         if not self._cache:
             return None
-        qvec = embed_text(question)
+        loop = asyncio.get_event_loop()
+        qvec = await loop.run_in_executor(None, embed_text, question)
         for q, entry in reversed(list(self._cache.items())):
             sim = self._cosine(qvec, entry["embedding"])
             if sim >= SIMILARITY_THRESHOLD:
@@ -50,7 +52,8 @@ class SemanticCache:
             return
         if len(self._cache) >= MAX_CACHE_SIZE:
             self._cache.popitem(last=False)  # 가장 오래된 항목 제거
-        embedding = embed_text(question)
+        loop = asyncio.get_event_loop()
+        embedding = await loop.run_in_executor(None, embed_text, question)
         self._cache[question] = {"answer": answer, "embedding": embedding, "ts": time.time()}
 
     def clear(self) -> None:

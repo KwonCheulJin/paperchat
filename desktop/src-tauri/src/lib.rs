@@ -696,10 +696,19 @@ fn run_install_lifecycle(
 
     // ── Switching (기존 llama-server 종료 후 재시작) ─────────────────────────
     model_store.set_and_emit(&app, ModelState::Switching);
-    if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(&final_path, n_gpu_layers) {
-        log_error!("llama-server 재시작 실패: {}", e);
-        model_store.set_and_emit(&app, ModelState::Failed { reason: e });
-        return;
+    // 외부에서 이미 실행 중이면 스폰 건너뜀
+    if !is_port_open(LLAMA_PORT) {
+        if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(&final_path, n_gpu_layers) {
+            // 스폰 실패했지만 포트가 열렸다면 외부 서버 사용
+            if !is_port_open(LLAMA_PORT) {
+                log_error!("llama-server 재시작 실패: {}", e);
+                model_store.set_and_emit(&app, ModelState::Failed { reason: e });
+                return;
+            }
+            log_info!("spawn_llm 실패하나 포트 {} 이미 열림 — 외부 서버 감지", LLAMA_PORT);
+        }
+    } else {
+        log_info!("llama-server 이미 실행 중 (포트 {}) — 외부 서버 사용", LLAMA_PORT);
     }
 
     // ── Loading (모델 로딩 완료 대기) ────────────────────────────────────────
@@ -940,7 +949,7 @@ pub fn run() {
                     log_info!("모델 없음 → Idle");
                     model_store.set_and_emit(&app_handle, ModelState::Idle {
                         ram_gb,
-                        gpu_name,
+                        gpu_name: gpu_name.clone(),
                         vram_gb,
                         recommended_filename: recommended.filename.to_string(),
                         all_models: MODELS.to_vec(),
@@ -965,29 +974,44 @@ pub fn run() {
                         log_error!("backend 포트 {} 대기 시간 초과", BACKEND_PORT);
                     }
 
-                    if let Some((ref model_path, n_gpu_layers)) = model_info {
+                    // 이미 외부에서 llama-server가 실행 중이면 스폰 건너뜀
+                    if is_port_open(LLAMA_PORT) {
+                        log_info!("llama-server 이미 실행 중 (포트 {}) → Ready", LLAMA_PORT);
+                        model_store.set_and_emit(&app_handle, ModelState::Ready);
+                    } else if let Some((ref model_path, n_gpu_layers)) = model_info {
                         log_info!("모델 발견: {}", model_path.display());
-                        if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(model_path, n_gpu_layers) {
-                            log_error!("llama-server 시작 실패: {}", e);
-                        }
-                    }
+                        match proc_mgr_state.0.lock().unwrap().spawn_llm(model_path, n_gpu_layers) {
+                            Err(e) => {
+                                // llama-server 바이너리 없음 → Idle로 복귀 (모델 선택 화면)
+                                log_error!("llama-server 시작 실패 (바이너리 없음?): {}", e);
+                                model_store.set_and_emit(&app_handle, ModelState::Idle {
+                                    ram_gb,
+                                    gpu_name,
+                                    vram_gb,
+                                    recommended_filename: recommended.filename.to_string(),
+                                    all_models: MODELS.to_vec(),
+                                });
+                            }
+                            Ok(()) => {
+                                // React가 리스너를 등록할 때까지 대기
+                                std::thread::sleep(std::time::Duration::from_secs(2));
 
-                    // React가 리스너를 등록할 때까지 대기
-                    std::thread::sleep(std::time::Duration::from_secs(2));
-
-                    log_info!("모델 로딩 대기...");
-                    model_store.set_and_emit(&app_handle, ModelState::Loading);
-                    match wait_until_loaded(LLAMA_PORT, 60) {
-                        Ok(()) => {
-                            log_info!("모델 로딩 완료 → Ready");
-                            model_store.set_and_emit(&app_handle, ModelState::Ready);
-                        }
-                        Err(reason) => {
-                            log_error!("모델 로딩 실패: {}", reason);
-                            proc_mgr_state.0.lock().unwrap().kill_llm();
-                            model_store.set_and_emit(&app_handle, ModelState::Failed {
-                                reason: format!("{} — RAM/VRAM 부족 가능성", reason),
-                            });
+                                log_info!("모델 로딩 대기...");
+                                model_store.set_and_emit(&app_handle, ModelState::Loading);
+                                match wait_until_loaded(LLAMA_PORT, 60) {
+                                    Ok(()) => {
+                                        log_info!("모델 로딩 완료 → Ready");
+                                        model_store.set_and_emit(&app_handle, ModelState::Ready);
+                                    }
+                                    Err(reason) => {
+                                        log_error!("모델 로딩 실패: {}", reason);
+                                        proc_mgr_state.0.lock().unwrap().kill_llm();
+                                        model_store.set_and_emit(&app_handle, ModelState::Failed {
+                                            reason: format!("{} — RAM/VRAM 부족 가능성", reason),
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 }

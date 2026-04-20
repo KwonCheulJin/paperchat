@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     api_secret_key: str = ""
     cors_origins: list[str] = [
         "http://localhost:3000",
+        "http://localhost:1420",  # Tauri v2 개발 모드 (Vite dev server)
         "tauri://localhost",
         "http://tauri.localhost",  # Tauri v2 Windows webview 오리진
     ]

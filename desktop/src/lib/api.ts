@@ -9,12 +9,39 @@ export type Source = {
   score: number;
 };
 
+export type EntityItem = {
+  value: string;
+  context: string | null;
+  doc_id: string;
+  filename: string;
+};
+
+export type EntityMeta = {
+  entityType: string;
+  totalCount: number;
+  hasMore: boolean;
+  nextOffset: number;
+  folder: string;
+  docId: string | null;
+};
+
 export type SseEvent =
   | { type: "token"; content: string }
   | { type: "sources"; sources: Source[] }
   | { type: "done"; cached: boolean; status?: string; doc_id?: string; chunk_count?: number; filename?: string }
   | { type: "progress"; message: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | {
+      type: "entity_result";
+      content: string;
+      items: string[];
+      entity_type: string;
+      total_count: number;
+      has_more: boolean;
+      next_offset: number;
+      folder: string;
+      doc_id: string | null;
+    };
 
 export type DocumentInfo = {
   doc_id: string;
@@ -63,14 +90,13 @@ export async function* chatStream(
   messages: ChatMessage[],
   profile: string,
   sessionId?: string,
-  folder?: string | null,  // 활성 폴더 스코프 (선택)
-  signal?: AbortSignal,  // 중지 신호
+  folder?: string | null,
+  signal?: AbortSignal,
+  continuation?: { entity_type: string; folder: string; doc_id: string | null; offset: number },
 ): AsyncGenerator<SseEvent> {
   try {
-    // 연결 타임아웃 60초: llama-server 무응답 시 무한 대기 방지
     const timeoutController = new AbortController();
     const timeoutTimer = setTimeout(() => timeoutController.abort(), 60_000);
-    // 사용자 중지(signal) 시 타임아웃도 같이 취소
     signal?.addEventListener("abort", () => {
       clearTimeout(timeoutTimer);
       timeoutController.abort();
@@ -81,8 +107,8 @@ export async function* chatStream(
       res = await fetch(`${BASE}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, profile, session_id: sessionId, folder }),
-        signal: timeoutController.signal,  // 항상 타임아웃 신호 사용
+        body: JSON.stringify({ messages, profile, session_id: sessionId, folder, continuation }),
+        signal: timeoutController.signal,
       });
     } finally {
       clearTimeout(timeoutTimer);
@@ -132,4 +158,17 @@ export async function listDocuments(): Promise<DocumentInfo[]> {
 export async function deleteDocument(docId: string): Promise<void> {
   const res = await fetch(`${BASE}/documents/${docId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`문서 삭제 실패: ${res.status}`);
+}
+
+// POST /chat/feedback — 메시지 피드백
+export async function submitFeedback(
+  messageId: string,
+  rating: "up" | "down",
+  sessionId?: string | null,
+): Promise<void> {
+  await fetch(`${BASE}/chat/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message_id: messageId, rating, session_id: sessionId }),
+  });
 }

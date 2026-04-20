@@ -39,31 +39,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/llama-server",
-      "binaries/backend"
-    ],
-    "resources": [
-      "binaries/ggml.dll",
-      "binaries/ggml-base.dll",
-      "binaries/ggml-rpc.dll",
-      "binaries/ggml-cpu-x64.dll",
-      "binaries/ggml-cpu-haswell.dll",
-      "binaries/ggml-cpu-sandybridge.dll",
-      "binaries/ggml-cpu-ivybridge.dll",
-      "binaries/ggml-cpu-skylakex.dll",
-      "binaries/ggml-cpu-icelake.dll",
-      "binaries/ggml-cpu-cascadelake.dll",
-      "binaries/ggml-cpu-cooperlake.dll",
-      "binaries/ggml-cpu-cannonlake.dll",
-      "binaries/ggml-cpu-sapphirerapids.dll",
-      "binaries/ggml-cpu-alderlake.dll",
-      "binaries/ggml-cpu-zen4.dll",
-      "binaries/ggml-cpu-sse42.dll",
-      "binaries/ggml-cpu-piledriver.dll",
-      "binaries/llama.dll",
-      "binaries/mtmd.dll",
-      "binaries/libomp140.x86_64.dll"
-    ]
+    "externalBin": [],
+    "resources": []
   }
 }
