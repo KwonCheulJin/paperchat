@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: import-linter
+        name: import-linter (의존성 방향 검사)
+        entry: bash -c 'cd backend && lint-imports'
+        language: system
+        pass_filenames: false
+        always_run: true
+        types: [python]

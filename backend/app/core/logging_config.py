@@ -1,7 +1,29 @@
+import hashlib
 import logging
 import logging.handlers
 import os
+import re
 import structlog
+
+# PII 마스킹: 이메일, 전화번호, 주민번호 패턴
+_PII_PATTERNS = [
+    re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"),  # 이메일
+    re.compile(r"\b\d{2,3}[-\s]?\d{3,4}[-\s]?\d{4}\b"),  # 전화번호
+    re.compile(r"\b\d{6}[-\s]?\d{7}\b"),  # 주민등록번호
+]
+
+
+def mask_query(text: str, max_len: int = 40) -> str:
+    """로그용 쿼리 마스킹: PII 패턴 제거 후 max_len자 + 해시 접미사."""
+    if not text:
+        return ""
+    masked = text
+    for pat in _PII_PATTERNS:
+        masked = pat.sub("[MASKED]", masked)
+    if len(masked) <= max_len:
+        return masked
+    suffix = hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()[:6]
+    return masked[:max_len] + f"…[{suffix}]"
 
 
 def configure_logging() -> None:

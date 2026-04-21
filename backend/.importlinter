@@ -1,0 +1,42 @@
+[importlinter]
+root_packages = app
+include_external_packages = True
+
+# Contract 1: domain must not import infrastructure directly
+# ignore_imports below are known tech debt -- remove as DI is fully applied
+[importlinter:contract:domain-no-infra]
+name = domain must not import infrastructure
+type = forbidden
+source_modules =
+    app.domain
+forbidden_modules =
+    app.infrastructure
+ignore_imports =
+    app.domain.chat.service -> app.infrastructure.llm.llama_server_adapter
+    app.domain.chat.service -> app.infrastructure.vector_store.chroma_adapter
+    app.domain.chat.service -> app.infrastructure.graph_store.networkx_sqlite_adapter
+    app.domain.document.service -> app.infrastructure.vector_store.chroma_adapter
+    app.domain.rag.cache -> app.infrastructure.vector_store.chroma_adapter
+    app.domain.rag.hybrid_search -> app.infrastructure.vector_store.chroma_adapter
+
+# Contract 2: infrastructure must not import domain services (ports/models only)
+[importlinter:contract:infra-no-domain-service]
+name = infrastructure must not import domain services
+type = forbidden
+source_modules =
+    app.infrastructure
+forbidden_modules =
+    app.domain.chat
+    app.domain.document
+    app.domain.rag.scheduler
+    app.domain.rag.cache
+    app.domain.rag.hybrid_search
+
+# Contract 3: api routes must not import infrastructure directly
+[importlinter:contract:routes-no-infra]
+name = api routes must not import infrastructure directly
+type = forbidden
+source_modules =
+    app.api.routes
+forbidden_modules =
+    app.infrastructure

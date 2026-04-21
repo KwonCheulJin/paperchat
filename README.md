@@ -19,6 +19,7 @@
 | 프론트엔드 | React 18 + TypeScript + Vite + Zustand |
 | 백엔드 | FastAPI + SQLAlchemy + Uvicorn |
 | 벡터 DB | ChromaDB + fastembed |
+| 그래프 DB | SQLite + NetworkX (온톨로지 캐시) |
 | 메타데이터 DB | SQLite (aiosqlite) |
 | PDF 파싱 | PyMuPDF + pdfplumber |
 | LLM 서버 | llama-server (llama.cpp) |
@@ -136,6 +137,25 @@ llama-server 또는 backend.exe가 바뀐 경우:
 | `GET` | `/documents/` | 문서 목록 조회 |
 | `DELETE` | `/documents/{id}` | 문서 삭제 |
 | `POST` | `/chat/` | 대화 (SSE 스트리밍) |
+| `POST` | `/chat/feedback` | 응답 피드백 기록 |
+
+### 백엔드 구조
+
+Hexagonal Architecture(포트 & 어댑터) 적용. `domain/` 레이어는 순수 비즈니스 로직만 포함하며 인프라에 직접 의존하지 않는 원칙을 따른다. 의존성 방향은 `import-linter`로 자동 검사된다.
+
+```
+app/
+├── api/routes/     # HTTP 진입점
+├── domain/         # 비즈니스 로직 (인프라 의존 없음)
+│   ├── chat/       # RAG 파이프라인, SSE 스트리밍
+│   ├── document/   # PDF 파싱, 청킹, 인덱싱
+│   └── rag/        # 검색, 재순위, 프롬프트 빌더
+└── infrastructure/ # 외부 시스템 어댑터
+    ├── llm/        # llama-server 연동
+    ├── vector_store/ # ChromaDB 연동
+    ├── graph_store/  # NetworkX + SQLite 연동
+    └── pdf/        # PyMuPDF 연동
+```
 
 ## 라이선스
 
