@@ -133,15 +133,36 @@ export async function* chatStream(
 }
 
 // POST /documents/ingest — SSE 인제스트 스트리밍
+// WebView2에서 POST FormData가 간헐적으로 TypeError("Failed to fetch")로 실패하는 케이스가 있어
+// 최대 3회(즉시 → 500ms → 1500ms) 재시도한다. 백엔드가 실제로 4xx/5xx를 돌려준 경우엔 재시도하지 않음.
 export async function* ingestPDF(file: File, folder: string = ""): AsyncGenerator<SseEvent> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("folder", folder);
+  const MAX_ATTEMPTS = 3;
+  let res: Response | undefined;
+  let lastError: unknown;
 
-  const res = await fetch(`${BASE}/documents/ingest`, {
-    method: "POST",
-    body: formData,
-  });
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", folder);
+    try {
+      res = await fetch(`${BASE}/documents/ingest`, {
+        method: "POST",
+        body: formData,
+      });
+      break;
+    } catch (e) {
+      lastError = e;
+      if (i < MAX_ATTEMPTS - 1) {
+        await new Promise((r) => setTimeout(r, 500 + i * 1000));
+      }
+    }
+  }
+
+  if (!res) {
+    const msg = lastError instanceof Error ? lastError.message : String(lastError);
+    yield { type: "error", message: `네트워크 오류 — ${msg} (재시도 ${MAX_ATTEMPTS}회 실패)` };
+    return;
+  }
 
   if (!res.ok) {
     yield { type: "error", message: `HTTP ${res.status}: ${res.statusText}` };

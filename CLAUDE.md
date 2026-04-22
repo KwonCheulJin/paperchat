@@ -145,6 +145,85 @@ git push --no-verify
 - 콘텐츠 전면, UI 크롬 후면
 - 사이버펑크/네온, SaaS 대시보드 패턴 금지
 
+## CSS 방법론
+
+- **Tailwind CSS v4** 유틸리티 클래스를 기본으로 사용한다.
+- **shadcn/ui** 컴포넌트를 활용한다 (`src/components/ui/`, `src/shared/ui/`).
+- `cn()` 함수 (`@/lib/utils`)로 조건부 클래스를 조합한다.
+- 디자인 토큰은 `src/globals.css`의 CSS 변수를 사용한다 (`var(--primary)`, `var(--text-dim)` 등).
+  - Tailwind 매핑된 토큰: `bg-card`, `bg-primary`, `text-foreground`, `border-border` 등
+  - 매핑되지 않은 변수: `text-[var(--text-dim)]`, `bg-[var(--surface-2)]` 등 arbitrary value 사용
+- `style={{}}` 인라인 스타일은 다음 경우에만 허용:
+  1. JS 런타임 계산값 (`transform: scaleX(...)`, 동적 색상 등)
+  2. CSS arbitrary value로 표현하기 지나치게 복잡한 `color-mix()` (단순 케이스는 `bg-[color-mix(in_oklch,...)]` 사용)
+  3. keyframe animation 트리거 외 직접 제어가 필요한 경우
+- `onMouseEnter/Leave`로 직접 `style` 조작 금지 → Tailwind `hover:` 클래스 사용
+- keyframe animation 참조: `[animation:ms_0.22s_ease]` 같은 arbitrary value 사용 (공백은 `_`로)
+
+### 크기·간격·텍스트는 Tailwind 기준 scale 사용 (필수)
+
+**`text-[Npx]`, `p-[Npx]`, `gap-[Npx]`, `w-[Npx]`, `h-[Npx]`, `rounded-[Npx]` 같은 임의 픽셀 값을 사용하지 말 것.** Tailwind 표준 스케일에 맞는 클래스를 우선 사용한다.
+
+**필수 매핑 (이 값은 반드시 Tailwind 클래스로)**:
+
+| px | spacing (p/m/gap/inset/top/...) | size (w/h/min/max) | 비고 |
+|----|----|----|----|
+| 1  | — (없음, arbitrary 유지) | `w-px`, `h-px` | 너비/높이만 `px` 유틸 존재 |
+| 2  | `-0.5` | `-0.5` | |
+| 4  | `-1` | `-1` | |
+| 6  | `-1.5` | `-1.5` | |
+| 8  | `-2` | `-2` | |
+| 10 | `-2.5` | `-2.5` | |
+| 12 | `-3` | `-3` | |
+| 14 | `-3.5` | `-3.5` | |
+| 16 | `-4` | `-4` | |
+| 20 | `-5` | `-5` | |
+| 24 | `-6` | `-6` | |
+| 32 | `-8` | `-8` | |
+| 44 | `-11` | `-11` | titlebar 등 |
+| 48 | `-12` | `-12` | |
+
+**폰트 크기** (`text-[Npx]` → 표준 클래스):
+| px | 클래스 |
+|----|--------|
+| 12 | `text-xs` |
+| 14 | `text-sm` |
+| 16 | `text-base` |
+| 18 | `text-lg` |
+| 20 | `text-xl` |
+| 24 | `text-2xl` |
+| 30 | `text-3xl` |
+
+**둥근 모서리** (`rounded-[Npx]` → 표준 클래스):
+| px | 클래스 |
+|----|--------|
+| 2  | `rounded-xs` |
+| 4  | `rounded-sm` |
+| 6  | `rounded-md` |
+| 8  | `rounded-lg` |
+| 12 | `rounded-xl` |
+| 16 | `rounded-2xl` |
+| 24 | `rounded-3xl` |
+
+**arbitrary `[Npx]` 허용 케이스 (예외)**:
+1. **Tailwind scale에 없는 값** — `3, 5, 7, 9, 11, 13, 15, 17, 18, 22, 26, 38, 46` 등 (디자인 요구상 정밀 픽셀 필요)
+2. **design-specific 폭/높이** — `w-[240px]`, `w-[760px]`, `max-w-[640px]`, `w-[290px]` 등 레이아웃 고유 폭
+3. **CSS 변수 참조** — `text-[var(--text-dim)]`, `bg-[color-mix(...)]`
+4. **keyframe 참조** — `[animation:ms_0.22s_ease]`
+
+**새 UI 작성 시**: 먼저 표준 scale(`p-2`, `gap-3`, `rounded-lg` 등)로 맞춰보고, 디자인이 정확히 표준 값을 요구하지 않을 때만 arbitrary `[Npx]` 사용.
+
+### 변환 패턴
+
+| 패턴 | 변환 |
+|------|------|
+| `color: "var(--text-dim)"` | `text-[var(--text-dim)]` |
+| `background: "var(--card)"` | `bg-card` |
+| `border: "1px solid var(--border)"` | `border border-border` |
+| `display: "flex", alignItems: "center"` | `flex items-center` |
+| `color-mix(in oklch, ...)` | `bg-[color-mix(in_oklch,...)]` (공백→`_`) |
+| 조건부 클래스 | `cn("base", condition && "conditional")` |
+
 ## Skill Routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill

@@ -27,7 +27,7 @@ export default function ProfileSelector() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`프로필 선택: ${current.label}`}
-        className="flex items-center gap-[5px] bg-[var(--surface-2)] border border-input rounded-[6px] px-2 py-1 text-[12px] text-[var(--text-secondary)] cursor-pointer whitespace-nowrap transition-colors duration-150 hover:text-foreground hover:border-primary hover:bg-primary/5"
+        className="flex items-center gap-[5px] bg-[var(--surface-2)] border border-input rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] cursor-pointer whitespace-nowrap transition-colors duration-150 hover:text-foreground hover:border-primary hover:bg-primary/5"
       >
         <span>{current.label}</span>
         {I.chevDown}
@@ -46,14 +46,14 @@ export default function ProfileSelector() {
                 setOpen(false);
               }}
               className={cn(
-                "block w-full text-left border-none rounded-[6px] px-[10px] py-[7px] text-[12px] cursor-pointer transition-colors duration-100 font-[inherit]",
+                "block w-full text-left border-none rounded-md px-2.5 py-[7px] text-xs cursor-pointer transition-colors duration-100 font-[inherit]",
                 p.value === profile
                   ? "bg-[var(--surface-2)] text-foreground"
                   : "bg-transparent text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text-secondary)]",
               )}
             >
               <span className="block">{p.label}</span>
-              <span className="block text-[10px] text-[var(--text-dim)] mt-[1px]">{p.desc}</span>
+              <span className="block text-xs text-[var(--text-dim)] mt-[1px]">{p.desc}</span>
             </button>
           ))}
         </div>

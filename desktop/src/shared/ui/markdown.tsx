@@ -37,7 +37,7 @@ export function parseInline(t: string): React.ReactNode[] {
       parts.push(
         <code
           key={k++}
-          className="bg-[color-mix(in_oklch,var(--text-muted)_15%,transparent)] text-[var(--text-secondary)] px-[6px] py-[2px] rounded-[4px] text-[0.88em] font-mono"
+          className="bg-[color-mix(in_oklch,var(--text-muted)_15%,transparent)] text-[var(--text-secondary)] px-1.5 py-0.5 rounded-sm text-[0.88em] font-mono"
         >
           {fm.m[1]}
         </code>
@@ -58,14 +58,14 @@ function MdTable({ lines }: { lines: string[] }) {
   );
   const [header, , ...body] = rows;
   return (
-    <div className="overflow-x-auto my-[10px]">
-      <table className="w-full border-collapse text-[13px]">
+    <div className="overflow-x-auto my-2.5">
+      <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
             {header?.map((h, i) => (
               <th
                 key={i}
-                className="px-[12px] py-2 text-left border-b border-border text-[var(--text-secondary)] font-semibold bg-[var(--surface-2)] whitespace-nowrap"
+                className="px-3 py-2 text-left border-b border-border text-[var(--text-secondary)] font-semibold bg-[var(--surface-2)] whitespace-nowrap"
               >
                 {parseInline(h)}
               </th>
@@ -76,7 +76,7 @@ function MdTable({ lines }: { lines: string[] }) {
           {body.map((row, ri) => (
             <tr key={ri} className="border-b border-white/[.04]">
               {row.map((cell, ci) => (
-                <td key={ci} className="px-[12px] py-[7px] text-foreground">
+                <td key={ci} className="px-3 py-[7px] text-foreground">
                   {parseInline(cell)}
                 </td>
               ))}
@@ -116,7 +116,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       el.push(
         <div
           key={k++}
-          className="font-bold text-foreground mt-[14px] mb-[6px]"
+          className="font-bold text-foreground mt-3.5 mb-1.5"
           style={{ fontSize: sz[hm[1].length] }}
         >
           {parseInline(hm[2])}
@@ -128,7 +128,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
 
     if (/^---+$/.test(L.trim())) {
       el.push(
-        <hr key={k++} className="border-none border-t border-white/[.06] my-[14px]" />
+        <hr key={k++} className="border-none border-t border-white/[.06] my-3.5" />
       );
       i++;
       continue;
@@ -143,7 +143,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       el.push(
         <div
           key={k++}
-          className="my-[10px] text-[var(--text-secondary)] bg-primary/5 px-[14px] py-[10px] rounded-lg border border-primary/15"
+          className="my-2.5 text-[var(--text-secondary)] bg-primary/5 px-3.5 py-2.5 rounded-lg border border-primary/15"
         >
           {ql.map((q, qi) => (
             <div key={qi} className="leading-[1.7]">
@@ -164,7 +164,7 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       el.push(
         <ul key={k++} className="my-2 pl-[18px] list-none">
           {items.map((it, ii) => (
-            <li key={ii} className="relative pl-[14px] mb-[3px] leading-[1.7]">
+            <li key={ii} className="relative pl-3.5 mb-[3px] leading-[1.7]">
               <span className="absolute left-0 text-[var(--text-muted)]">•</span>
               {parseInline(it)}
             </li>
@@ -183,8 +183,8 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       el.push(
         <ol key={k++} className="my-2 pl-1 list-none">
           {items.map((it, ii) => (
-            <li key={ii} className="flex gap-[10px] mb-[3px] leading-[1.7]">
-              <span className="text-[var(--text-muted)] font-semibold text-[13px] min-w-[18px]">
+            <li key={ii} className="flex gap-2.5 mb-[3px] leading-[1.7]">
+              <span className="text-[var(--text-muted)] font-semibold text-sm min-w-[18px]">
                 {ii + 1}.
               </span>
               <span>{parseInline(it)}</span>

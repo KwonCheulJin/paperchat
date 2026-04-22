@@ -66,20 +66,20 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
         className="flex-1 flex flex-col justify-center p-6"
         style={{ animation: "fi 0.4s ease" }}
       >
-        <div className="max-w-[560px] w-full mx-auto">
+        <div className="max-w-[640px] w-full mx-auto">
           {/* Profile context */}
-          <div className="pt-5 mb-6">
-            <p className="text-[11px] text-[var(--text-dim)] mb-[10px] tracking-[0.05em] uppercase">
+          <div className="pt-5 mb-8">
+            <p className="text-xs text-[var(--text-dim)] mb-3 tracking-[0.05em] uppercase">
               {currentProfile.label}
             </p>
-            <p className="text-[16px] text-foreground leading-[1.65]">
+            <p className="text-3xl text-foreground leading-[1.35] font-semibold tracking-[-0.01em]">
               {currentProfile.subtitle}
             </p>
           </div>
 
           {/* Suggestion list */}
-          <div className="mb-7">
-            <p className="text-[11px] text-[var(--text-dim)] mb-[10px] tracking-[0.06em] uppercase">
+          <div className="mb-8">
+            <p className="text-xs text-[var(--text-dim)] mb-3 tracking-[0.06em] uppercase">
               시작 질문
             </p>
             <div className="flex flex-col gap-0">
@@ -87,9 +87,9 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
-                  className="bg-transparent border-none py-[7px] text-[13px] text-[var(--text-secondary)] cursor-pointer text-left flex items-start gap-3 font-[inherit] transition-colors duration-[120ms] hover:text-foreground"
+                  className="bg-transparent border-none py-2 text-base text-[var(--text-secondary)] cursor-pointer text-left flex items-start gap-3 font-[inherit] transition-colors duration-[120ms] hover:text-foreground"
                 >
-                  <span className="text-[var(--text-dim)] shrink-0 text-[10px] tabular-nums tracking-[0.02em] min-w-[16px] mt-[3px]">
+                  <span className="text-[var(--text-dim)] shrink-0 text-xs tabular-nums tracking-[0.02em] min-w-[18px] mt-[5px]">
                     {String(idx + 1).padStart(2, "0")}
                   </span>
                   <span>{s}</span>
@@ -101,7 +101,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
           {/* Document hint */}
           <button
             onClick={onRightPanelToggle}
-            className="bg-transparent border-none p-0 text-[12px] text-[var(--text-dim)] cursor-pointer flex items-center gap-[6px] font-[inherit] transition-colors duration-[120ms] hover:text-[var(--text-muted)]"
+            className="bg-transparent border-none p-0 text-sm text-[var(--text-dim)] cursor-pointer flex items-center gap-1.5 font-[inherit] transition-colors duration-[120ms] hover:text-[var(--text-muted)]"
           >
             {I.folder}
             <span>문서를 추가하면 해당 범위를 기반으로 답변합니다</span>
@@ -171,8 +171,8 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
           }}
           className={cn(
             "absolute bottom-4 left-1/2 -translate-x-1/2",
-            "bg-card border border-border rounded-[4px] px-[14px] py-[5px]",
-            "flex items-center gap-[5px] text-[12px] text-[var(--text-muted)]",
+            "bg-card border border-border rounded-sm px-3.5 py-[5px]",
+            "flex items-center gap-[5px] text-xs text-[var(--text-muted)]",
             "cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.4)] z-10",
           )}
         >

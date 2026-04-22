@@ -5,16 +5,14 @@ import { useChatStore } from "../../store/chat";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import { AlertDialog } from "../../shared/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/ui/tooltip";
 import type { DocumentInfo } from "../../lib/api";
-
-type Props = {
-  onClose: () => void;
-};
+import { cn } from "@/lib/utils";
 
 const OTHER_KEY = "";
 const OTHER_LABEL = "(기타)";
 
-export default function DocumentPanel({ onClose }: Props) {
+export default function DocumentPanel() {
   const {
     documents,
     folderProgress,
@@ -112,7 +110,6 @@ export default function DocumentPanel({ onClose }: Props) {
     }
   };
 
-  // 폴더별 그룹핑 + 정렬된 키 (이름 있는 폴더 알파벳순, "(기타)"는 마지막)
   const { groups, orderedKeys } = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = q
@@ -151,64 +148,22 @@ export default function DocumentPanel({ onClose }: Props) {
     }
   };
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        background: "var(--sidebar)",
-        overflow: "hidden",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 14px 10px",
-          flexShrink: 0,
-          borderBottom: "1px solid var(--surface-2)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          {I.folder}
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>문서 관리</span>
-        </div>
-        <Tb icon={I.x} tip="닫기" onClick={onClose} />
-      </div>
+  const progressScale = folderProgress
+    ? folderProgress.chunkTotal > 0
+      ? (folderProgress.done + folderProgress.chunkDone / folderProgress.chunkTotal) / folderProgress.total
+      : folderProgress.done / folderProgress.total
+    : 0;
 
+  return (
+    <div className="flex flex-col h-full bg-sidebar overflow-hidden">
       {/* Upload area */}
-      <div style={{ padding: "10px 10px 8px", flexShrink: 0 }}>
+      <div className="px-2.5 pt-3 pb-2 shrink-0">
         {folderProgress !== null ? (
-          <div
-            style={{
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: 10,
-              padding: "12px 14px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 6,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <div className="bg-card border border-border rounded-[10px] px-3.5 py-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2 min-w-0">
                 {I.upload}
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-secondary)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <span className="text-xs text-[var(--text-secondary)] overflow-hidden text-ellipsis whitespace-nowrap">
                   {folderProgress.total === 1
                     ? folderProgress.folderName
                     : `${folderProgress.folderName} (${folderProgress.done}/${folderProgress.total})`}
@@ -217,7 +172,7 @@ export default function DocumentPanel({ onClose }: Props) {
               {folderProgress.failed > 0 && (
                 <span
                   title={`${folderProgress.failed}개 파일 처리 실패 — 각 파일별 오류는 알림을 확인하세요`}
-                  style={{ fontSize: 11, color: "var(--warning)", flexShrink: 0, marginLeft: 8, cursor: "help" }}
+                  className="text-xs text-[var(--warning)] shrink-0 ml-2 cursor-help"
                 >
                   ⚠ {folderProgress.failed}개 실패
                 </span>
@@ -225,17 +180,7 @@ export default function DocumentPanel({ onClose }: Props) {
               {folderProgress.hasRetry && (
                 <button
                   onClick={retryFailedUploads}
-                  style={{
-                    flexShrink: 0,
-                    marginLeft: 6,
-                    background: "transparent",
-                    border: "1px solid var(--warning)",
-                    borderRadius: 4,
-                    padding: "1px 7px",
-                    fontSize: 11,
-                    color: "var(--warning)",
-                    cursor: "pointer",
-                  }}
+                  className="shrink-0 ml-1.5 bg-transparent border border-[var(--warning)] rounded-sm px-[7px] py-px text-xs text-[var(--warning)] cursor-pointer"
                 >
                   재시도
                 </button>
@@ -246,33 +191,17 @@ export default function DocumentPanel({ onClose }: Props) {
               aria-valuenow={folderProgress.done}
               aria-valuemin={0}
               aria-valuemax={folderProgress.total}
-              style={{
-                height: 3,
-                background: "var(--border)",
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
+              className="h-[3px] bg-border rounded-xs overflow-hidden"
             >
               <div
-                style={{
-                  height: "100%",
-                  width: "100%",
-                  background: "var(--primary)",
-                  borderRadius: 2,
-                  transform: `scaleX(${
-                  folderProgress.chunkTotal > 0
-                    ? (folderProgress.done + folderProgress.chunkDone / folderProgress.chunkTotal) / folderProgress.total
-                    : folderProgress.done / folderProgress.total
-                })`,
-                  transformOrigin: "left",
-                  transition: "transform 0.3s ease",
-                }}
+                className="h-full w-full bg-primary rounded-xs origin-left transition-transform duration-300 ease"
+                style={{ transform: `scaleX(${progressScale})` }}
               />
             </div>
             {folderProgress.currentStatus && (
               <p
                 aria-live="polite"
-                style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 5 }}
+                className="text-xs text-[var(--text-muted)] mt-[5px]"
               >
                 {folderProgress.currentStatus}
               </p>
@@ -294,66 +223,23 @@ export default function DocumentPanel({ onClose }: Props) {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onClick={() => fileInputRef.current?.click()}
-              style={{
-                border: `1px dashed ${dragOver ? "var(--primary)" : "var(--border)"}`,
-                borderRadius: 10,
-                padding: "16px 12px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 6,
-                cursor: "pointer",
-                background: dragOver ? "color-mix(in oklch, var(--primary) 4%, transparent)" : "transparent",
-                transition: "border-color 0.15s, background 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                if (!dragOver) {
-                  e.currentTarget.style.borderColor = "var(--input)";
-                  e.currentTarget.style.background = "transparent";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!dragOver) {
-                  e.currentTarget.style.borderColor = "var(--border)";
-                  e.currentTarget.style.background = "transparent";
-                }
-              }}
+              className={cn(
+                "border border-dashed rounded-[10px] px-3 py-4 flex flex-col items-center gap-1.5 cursor-pointer transition-[border-color,background] duration-150",
+                dragOver
+                  ? "border-primary bg-[color-mix(in_oklch,var(--primary)_4%,transparent)]"
+                  : "border-border bg-transparent hover:border-[var(--input)]"
+              )}
             >
-              <div style={{ color: "var(--text-dim)" }}>{I.upload}</div>
-              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", lineHeight: 1.4 }}>
+              <div className="text-[var(--text-dim)]">{I.upload}</div>
+              <p className="text-xs text-[var(--text-dim)] text-center leading-[1.4]">
                 PDF 드래그 또는 클릭하여 업로드
               </p>
             </div>
             <button
               onClick={() => folderInputRef.current?.click()}
-              style={{
-                marginTop: 6,
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                background: "transparent",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                color: "var(--text-secondary)",
-                fontSize: 11,
-                cursor: "pointer",
-                transition: "border-color 0.15s, background 0.15s, color 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--primary)";
-                e.currentTarget.style.background = "color-mix(in oklch, var(--primary) 4%, transparent)";
-                e.currentTarget.style.color = "var(--foreground)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border)";
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-secondary)";
-              }}
+              className="mt-1.5 w-full flex items-center justify-center gap-1.5 bg-transparent border border-border rounded-lg px-2.5 py-2 text-[var(--text-secondary)] text-xs cursor-pointer transition-[border-color,background,color] duration-150 hover:border-primary hover:bg-[color-mix(in_oklch,var(--primary)_4%,transparent)] hover:text-foreground"
             >
-              <span style={{ display: "flex" }}>{I.folder}</span>
+              <span className="flex">{I.folder}</span>
               <span>폴더 선택</span>
             </button>
           </>
@@ -362,10 +248,9 @@ export default function DocumentPanel({ onClose }: Props) {
           ref={fileInputRef}
           type="file"
           accept=".pdf"
-          style={{ display: "none" }}
+          className="hidden"
           onChange={(e) => {
             handleSingleFile(e.target.files);
-            // 같은 파일 재선택 가능하도록 리셋
             e.target.value = "";
           }}
         />
@@ -374,89 +259,57 @@ export default function DocumentPanel({ onClose }: Props) {
           type="file"
           multiple
           {...{ webkitdirectory: "" }}
-          style={{ display: "none" }}
+          className="hidden"
           onChange={(e) => {
             handleFolderSelect(e.target.files);
-            // 같은 폴더 재선택 가능하도록 리셋
             e.target.value = "";
           }}
         />
       </div>
 
-      <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 10px" }} />
 
       {/* Search */}
       {documents.length > 0 && (
-        <div style={{ padding: "6px 10px 2px", flexShrink: 0 }}>
+        <div className="px-2.5 pt-1.5 pb-0.5 shrink-0">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="파일명 또는 폴더 검색..."
-            style={{
-              width: "100%",
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: 7,
-              padding: "5px 10px",
-              fontSize: 12,
-              color: "var(--foreground)",
-              boxSizing: "border-box",
-              outline: "none",
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--input)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+            className="w-full bg-card border border-border rounded-[7px] px-2.5 py-[5px] text-xs text-foreground box-border outline-none focus:border-[var(--input)]"
           />
         </div>
       )}
 
       {/* Documents folder tree */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}>
+      <div className="flex-1 overflow-y-auto px-2.5 py-2">
         <button
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           aria-label={expanded ? "문서 목록 접기" : "문서 목록 펼치기"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            width: "100%",
-            background: "transparent",
-            border: "none",
-            padding: "4px 2px",
-            cursor: "pointer",
-            marginBottom: 2,
-          }}
+          className="flex items-center gap-1.5 w-full bg-transparent border-none px-0.5 py-1 cursor-pointer mb-0.5"
         >
-          <span style={{ color: "var(--text-dim)", display: "flex" }}>
+          <span className="text-[var(--text-dim)] flex">
             {expanded ? I.chevDown : I.chevRight}
           </span>
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "var(--text-dim)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            인덱싱된 문서 ({documents.length})
+          <span className="text-xs font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em]">
+            내 문서 ({documents.length})
           </span>
         </button>
         {expanded && documents.length > 0 && showFolderHint && (
-          <p style={{ fontSize: 10, color: "var(--text-dim)", padding: "0 2px 6px", lineHeight: 1.4 }}>
-            체크 버튼으로 폴더를 활성화하면 해당 폴더만 검색에 사용됩니다
+          <p className="text-xs text-[var(--text-dim)] px-0.5 pb-1.5 leading-[1.4]">
+            폴더를 체크하면 해당 폴더 문서에서만 답을 찾아드려요
           </p>
         )}
 
         {expanded && (
           <>
             {documents.length === 0 ? (
-              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "12px 0" }}>
+              <p className="text-xs text-[var(--text-dim)] text-center py-3">
                 문서가 없습니다
               </p>
             ) : orderedKeys.length === 0 && searchQuery.trim() ? (
-              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "12px 0" }}>
+              <p className="text-xs text-[var(--text-dim)] text-center py-3">
                 일치하는 문서가 없습니다
               </p>
             ) : (
@@ -467,54 +320,36 @@ export default function DocumentPanel({ onClose }: Props) {
                 const isActive = activeFolder !== null && activeFolder === key;
                 const canActivate = key !== OTHER_KEY;
                 return (
-                  <div key={key || "__other__"} style={{ marginBottom: 4 }}>
+                  <div key={key || "__other__"} className="mb-1">
                     {/* Folder header */}
                     <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "5px 6px",
-                        borderRadius: 7,
-                        border: isActive ? "1px solid var(--primary)" : "1px solid transparent",
-                        background: isActive ? "color-mix(in oklch, var(--primary) 8%, transparent)" : "transparent",
-                        transition: "background 0.1s, border-color 0.1s",
-                      }}
+                      className={cn(
+                        "flex items-center gap-1 px-1.5 py-[5px] rounded-[7px] border transition-[background,border-color] duration-100",
+                        isActive
+                          ? "border-primary bg-[color-mix(in_oklch,var(--primary)_8%,transparent)]"
+                          : "border-transparent bg-transparent"
+                      )}
                     >
                       <button
                         onClick={() => toggleFolderExpanded(key)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          flex: 1,
-                          background: "transparent",
-                          border: "none",
-                          padding: 0,
-                          cursor: "pointer",
-                          minWidth: 0,
-                          textAlign: "left",
-                        }}
+                        className="flex items-center gap-1.5 flex-1 bg-transparent border-none p-0 cursor-pointer min-w-0 text-left"
                       >
-                        <span style={{ color: "var(--text-dim)", display: "flex" }}>
+                        <span className="text-[var(--text-dim)] flex">
                           {open ? I.chevDown : I.chevRight}
                         </span>
-                        <span style={{ color: "var(--text-muted)", display: "flex" }}>{I.folder}</span>
+                        <span className="text-[var(--text-muted)] flex">{I.folder}</span>
                         <span
-                          style={{
-                            fontSize: 12,
-                            color: isActive ? "var(--foreground)" : "var(--text-secondary)",
-                            fontWeight: isActive ? 600 : 500,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            flex: 1,
-                          }}
+                          className={cn(
+                            "text-sm overflow-hidden text-ellipsis whitespace-nowrap flex-1",
+                            isActive
+                              ? "text-foreground font-semibold"
+                              : "text-[var(--text-secondary)] font-medium"
+                          )}
                           title={label}
                         >
                           {label}
                         </span>
-                        <span style={{ fontSize: 10, color: "var(--text-dim)", flexShrink: 0 }}>
+                        <span className="text-xs text-[var(--text-dim)] shrink-0">
                           {docs.length}
                         </span>
                       </button>
@@ -524,32 +359,12 @@ export default function DocumentPanel({ onClose }: Props) {
                           title={isActive ? "활성 폴더 해제" : "활성 폴더로 지정 (채팅 스코프 제한)"}
                           aria-label={isActive ? `${label} 폴더 활성화 해제` : `${label} 폴더만 검색에 사용`}
                           aria-pressed={isActive}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 22,
-                            height: 22,
-                            borderRadius: 5,
-                            background: isActive ? "var(--primary)" : "transparent",
-                            border: `1px solid ${isActive ? "var(--primary)" : "var(--input)"}`,
-                            color: isActive ? "var(--primary-foreground)" : "var(--text-dim)",
-                            cursor: "pointer",
-                            flexShrink: 0,
-                            transition: "background 0.1s, border-color 0.1s, color 0.1s",
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.borderColor = "var(--primary)";
-                              e.currentTarget.style.color = "var(--primary)";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.borderColor = "var(--input)";
-                              e.currentTarget.style.color = "var(--text-dim)";
-                            }
-                          }}
+                          className={cn(
+                            "flex items-center justify-center w-[22px] h-[22px] rounded-[5px] cursor-pointer shrink-0 border transition-[background,border-color,color] duration-100",
+                            isActive
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "bg-transparent border-[var(--input)] text-[var(--text-dim)] hover:border-primary hover:text-primary"
+                          )}
                         >
                           {I.check}
                         </button>
@@ -561,36 +376,19 @@ export default function DocumentPanel({ onClose }: Props) {
                       docs.map((doc) => (
                         <div
                           key={doc.doc_id}
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: 7,
-                            padding: "6px 6px 6px 22px",
-                            borderRadius: 7,
-                            marginBottom: 1,
-                            transition: "background 0.1s",
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--card)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          className="flex items-start gap-[7px] pl-[22px] pr-1.5 py-1.5 rounded-[7px] mb-px transition-colors duration-100 hover:bg-card"
                         >
-                          <div style={{ color: "var(--text-dim)", marginTop: 1, flexShrink: 0 }}>
+                          <div className="text-[var(--text-dim)] mt-px shrink-0">
                             {I.file}
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="flex-1 min-w-0">
                             <p
-                              style={{
-                                fontSize: 12,
-                                color: "var(--text-secondary)",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                marginBottom: 1,
-                              }}
+                              className="text-sm text-[var(--text-secondary)] overflow-hidden text-ellipsis whitespace-nowrap mb-px"
                               title={doc.filename}
                             >
                               {doc.filename}
                             </p>
-                            <p style={{ fontSize: 10, color: "var(--text-dim)" }}>
+                            <p className="text-xs text-[var(--text-dim)]">
                               {doc.chunk_count}청크 · {formatDate(doc.ingested_at)}
                             </p>
                           </div>
@@ -613,36 +411,37 @@ export default function DocumentPanel({ onClose }: Props) {
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         title="문서 삭제"
-        description={`'${deleteTarget?.filename ?? ""}'을 삭제하시겠습니까? 인덱싱된 데이터가 모두 제거되며 되돌릴 수 없습니다.`}
+        description={`'${deleteTarget?.filename ?? ""}'을 삭제하시겠습니까? 저장된 데이터가 모두 제거되며 되돌릴 수 없습니다.`}
         onAction={() => {
           if (deleteTarget) deleteDocument(deleteTarget.doc_id);
           setDeleteTarget(null);
         }}
       />
 
-      <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 10px" }} />
 
       {/* Context section */}
-      <div style={{ padding: "10px 14px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={{ color: "var(--text-dim)" }}>{I.globe}</span>
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "var(--text-dim)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            컨텍스트
-          </span>
-        </div>
-        <p style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>
-          {activeFolder
-            ? `'${activeFolder}' 폴더 문서만 검색에 사용됩니다.`
-            : "업로드된 문서가 RAG 검색에 자동으로 사용됩니다."}
-        </p>
+      <div className="px-3.5 py-2.5 shrink-0">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="답변 범위 설명 보기"
+              className="flex items-center gap-1.5 bg-transparent border-none p-0 cursor-help text-left"
+            >
+              <span className="text-[var(--text-dim)]">{I.globe}</span>
+              <span className="text-xs font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em]">
+                답변 범위
+              </span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="start" className="max-w-[220px]">
+            <p className="text-xs leading-[1.5]">
+              {activeFolder
+                ? `'${activeFolder}' 폴더의 문서에서만 답을 찾아드려요.`
+                : "업로드하신 문서 전체에서 자동으로 답을 찾아드려요."}
+            </p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

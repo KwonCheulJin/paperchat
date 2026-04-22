@@ -6,6 +6,7 @@ import ThinkingIndicator from "./thinking-indicator";
 import { useChatStore } from "../../store/chat";
 import type { Message } from "../../store/chat";
 import type { Source } from "../../lib/api";
+import { cn } from "@/lib/utils";
 
 interface ChatMessageProps {
   message: Message;
@@ -28,88 +29,38 @@ function scoreLabel(score: number) {
   return "낮음";
 }
 
+const metaClass = "text-xs text-[var(--text-dim)] font-[tabular-nums] tracking-[0.025em]";
+
 function SourceBadge({ source }: { source: Source }) {
   const [show, setShow] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const label = source.filename.replace(/\.pdf$/i, "");
   const color = scoreColor(source.score);
   return (
-    <div style={{ position: "relative", display: "inline-block" }}>
+    <div className="relative inline-block">
       <button
-        onMouseEnter={() => { setShow(true); setHovered(true); }}
-        onMouseLeave={() => { setShow(false); setHovered(false); }}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
         onFocus={() => setShow(true)}
         onBlur={() => setShow(false)}
-        style={{
-          background: "transparent",
-          border: `1px solid ${hovered
-            ? "color-mix(in oklch, var(--primary) 28%, var(--border))"
-            : "var(--border)"}`,
-          borderRadius: 2,
-          padding: "2px 8px",
-          fontSize: 11,
-          color: hovered ? "var(--text-secondary)" : "var(--text-dim)",
-          cursor: "default",
-          lineHeight: 1.65,
-          fontFamily: "inherit",
-          transition: "color 0.15s, border-color 0.15s",
-          letterSpacing: "0.01em",
-        }}
+        className="bg-transparent border border-border rounded-xs px-2 py-0.5 text-xs text-[var(--text-dim)] leading-[1.65] font-[inherit] tracking-[0.01em] cursor-default transition-[color,border-color] duration-150 hover:border-[color-mix(in_oklch,var(--primary)_28%,var(--border))] hover:text-[var(--text-secondary)]"
       >
         {label}
       </button>
       {show && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "100%",
-            left: 0,
-            marginBottom: 8,
-            zIndex: 100,
-            width: 290,
-            padding: "12px 14px",
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 4,
-            boxShadow: "0 16px 40px rgba(0,0,0,0.65)",
-          }}
-        >
-          <p style={{
-            fontWeight: 600,
-            color: "var(--foreground)",
-            marginBottom: 6,
-            fontSize: 12,
-            letterSpacing: "0.01em",
-            lineHeight: 1.4,
-          }}>
+        <div className="absolute bottom-full left-0 mb-2 z-[100] w-[290px] px-3.5 py-3 bg-card border border-border rounded-sm shadow-[0_16px_40px_rgba(0,0,0,0.65)]">
+          <p className="font-semibold text-foreground mb-1.5 text-xs tracking-[0.01em] leading-[1.4]">
             {source.filename}
           </p>
-          <p style={{ color: "var(--text-muted)", fontSize: 11, lineHeight: 1.6, margin: 0 }}>
+          <p className="text-[var(--text-muted)] text-xs leading-[1.6] m-0">
             {source.text.slice(0, 220)}
             {source.text.length > 220 ? "…" : ""}
           </p>
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            marginTop: 8,
-            paddingTop: 7,
-            borderTop: "1px solid var(--border)",
-          }}>
-            <span style={{
-              width: 5,
-              height: 5,
-              borderRadius: "50%",
-              background: color,
-              flexShrink: 0,
-              display: "inline-block",
-            }} />
-            <span style={{
-              fontSize: 10,
-              color: "var(--text-dim)",
-              fontVariantNumeric: "tabular-nums",
-              letterSpacing: "0.02em",
-            }}>
+          <div className="flex items-center gap-[5px] mt-2 pt-[7px] border-t border-border">
+            <span
+              className="w-[5px] h-[5px] rounded-full shrink-0 inline-block"
+              style={{ background: color }}
+            />
+            <span className="text-xs text-[var(--text-dim)] font-[tabular-nums] tracking-[0.02em]">
               관련도 {scoreLabel(source.score)} · {(source.score * 100).toFixed(0)}%
             </span>
           </div>
@@ -127,33 +78,14 @@ function SourceList({ sources }: { sources: Source[] }) {
   const visible = expanded ? sources : sources.slice(0, MAX_VISIBLE_SOURCES);
   const hidden = sources.length - MAX_VISIBLE_SOURCES;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 14, alignItems: "center" }}>
+    <div className="flex flex-wrap items-center gap-[3px] mt-3.5">
       {visible.map((s) => (
         <SourceBadge key={s.chunk_id} source={s} />
       ))}
       {!expanded && hidden > 0 && (
         <button
           onClick={() => setExpanded(true)}
-          style={{
-            background: "transparent",
-            border: "1px solid var(--border)",
-            borderRadius: 2,
-            padding: "2px 8px",
-            fontSize: 11,
-            color: "var(--text-dim)",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            letterSpacing: "0.01em",
-            transition: "color 0.12s, border-color 0.12s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = "color-mix(in oklch, var(--primary) 28%, var(--border))";
-            e.currentTarget.style.color = "var(--text-secondary)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "var(--border)";
-            e.currentTarget.style.color = "var(--text-dim)";
-          }}
+          className="bg-transparent border border-border rounded-xs px-2 py-0.5 text-xs text-[var(--text-dim)] cursor-pointer font-[inherit] tracking-[0.01em] transition-[color,border-color] duration-[120ms] hover:border-[color-mix(in_oklch,var(--primary)_28%,var(--border))] hover:text-[var(--text-secondary)]"
         >
           +{hidden}개 더
         </button>
@@ -164,21 +96,7 @@ function SourceList({ sources }: { sources: Source[] }) {
 
 export function ErrorMsg({ message }: { message: string }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 8,
-        padding: "10px 14px",
-        background: "color-mix(in oklch, var(--destructive) 8%, transparent)",
-        border: "1px solid color-mix(in oklch, var(--destructive) 20%, transparent)",
-        borderRadius: 2,
-        color: "var(--destructive)",
-        fontSize: 13,
-        lineHeight: 1.5,
-        margin: "4px 0",
-      }}
-    >
+    <div className="flex items-start gap-2 px-3.5 py-2.5 bg-[color-mix(in_oklch,var(--destructive)_8%,transparent)] border border-[color-mix(in_oklch,var(--destructive)_20%,transparent)] rounded-xs text-destructive text-sm leading-[1.5] my-1">
       {I.alert}
       <span>{message}</span>
     </div>
@@ -187,13 +105,6 @@ export function ErrorMsg({ message }: { message: string }) {
 
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", hour12: true });
-
-const metaStyle: React.CSSProperties = {
-  fontSize: 10.5,
-  color: "var(--text-dim)",
-  fontVariantNumeric: "tabular-nums",
-  letterSpacing: "0.025em",
-};
 
 function ContinueButton({ messageId, meta }: { messageId: string; meta: NonNullable<Message["entityMeta"]> }) {
   const [loading, setLoading] = useState(false);
@@ -214,57 +125,34 @@ function ContinueButton({ messageId, meta }: { messageId: string; meta: NonNulla
   };
 
   return (
-    <div style={{ marginTop: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-        <span style={{ ...metaStyle, flexShrink: 0 }}>
+    <div className="mt-3.5">
+      <div className="flex items-center gap-2.5 mb-2.5">
+        <div className="flex-1 h-px bg-border" />
+        <span className={cn(metaClass, "shrink-0")}>
           {meta.nextOffset} / {meta.totalCount}
         </span>
-        <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+        <div className="flex-1 h-px bg-border" />
       </div>
       <button
         type="button"
         onClick={handleClick}
         disabled={loading}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "6px 12px",
-          background: "transparent",
-          border: "1px solid var(--border)",
-          borderRadius: 2,
-          fontSize: 12,
-          color: loading ? "var(--text-dim)" : "var(--text-secondary)",
-          cursor: loading ? "default" : "pointer",
-          letterSpacing: "0.01em",
-          fontFamily: "inherit",
-          lineHeight: 1.5,
-          transition: "color 0.12s, border-color 0.12s",
-        }}
-        onMouseEnter={(e) => {
-          if (!loading) {
-            (e.currentTarget as HTMLButtonElement).style.borderColor =
-              "color-mix(in oklch, var(--primary) 20%, var(--border))";
-            (e.currentTarget as HTMLButtonElement).style.color = "var(--foreground)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!loading) {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
-            (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
-          }
-        }}
+        className={cn(
+          "inline-flex items-center gap-2 px-3 py-1.5 bg-transparent border border-border rounded-xs text-xs font-[inherit] tracking-[0.01em] leading-[1.5] transition-[color,border-color] duration-[120ms]",
+          loading
+            ? "text-[var(--text-dim)] cursor-default"
+            : "text-[var(--text-secondary)] cursor-pointer hover:border-[color-mix(in_oklch,var(--primary)_20%,var(--border))] hover:text-foreground"
+        )}
       >
         {loading ? (
-          <span style={{ opacity: 0.45, letterSpacing: "0.15em" }}>···</span>
+          <span className="opacity-[0.45] tracking-[0.15em]">···</span>
         ) : (
           <>
-            <span style={{ color: "var(--primary)", fontVariantNumeric: "tabular-nums", fontSize: 11, opacity: 0.85 }}>
+            <span className="text-primary font-[tabular-nums] text-xs opacity-[0.85]">
               {rangeStart}–{rangeEnd}번째
             </span>
             <span>이어서 작성하기</span>
-            <span style={{ ...metaStyle, fontSize: 11 }}>
+            <span className={cn(metaClass, "text-xs")}>
               · 나머지 {remaining}개
             </span>
           </>
@@ -342,23 +230,11 @@ export default function ChatMessage({
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          padding: "14px 0 4px",
-          animation: "ms 0.22s ease",
-        }}
+        className="flex justify-end pt-3.5 pb-1 [animation:ms_0.22s_ease]"
       >
-        <div style={{ maxWidth: "72%" }}>
+        <div className="max-w-[72%]">
           {editing ? (
-            <div
-              style={{
-                background: "var(--card)",
-                border: "1px solid color-mix(in oklch, var(--primary) 22%, var(--border))",
-                borderRadius: 12,
-                overflow: "hidden",
-              }}
-            >
+            <div className="bg-card border border-[color-mix(in_oklch,var(--primary)_22%,var(--border))] rounded-xl overflow-hidden">
               <textarea
                 aria-label="질문 편집"
                 value={editedContent}
@@ -374,63 +250,23 @@ export default function ChatMessage({
                     el.setSelectionRange(len, len);
                   }
                 }}
-                style={{
-                  width: "100%",
-                  background: "transparent",
-                  border: "none",
-                  padding: "12px 14px",
-                  color: "var(--foreground)",
-                  fontSize: 14,
-                  lineHeight: 1.55,
-                  resize: "none",
-                  boxSizing: "border-box" as const,
-                  fontFamily: "inherit",
-                  outline: "none",
-                  display: "block",
-                }}
+                className="block w-full bg-transparent border-none px-3.5 py-3 text-foreground text-sm leading-[1.55] resize-none box-border font-[inherit] outline-none"
               />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  alignItems: "center",
-                  gap: 4,
-                  padding: "6px 8px 8px",
-                  borderTop: "1px solid var(--border)",
-                }}
-              >
-                <span style={{ ...metaStyle, marginRight: "auto", paddingLeft: 6 }}>
+              <div className="flex justify-end items-center gap-1 px-2 pt-1.5 pb-2 border-t border-border">
+                <span className={cn(metaClass, "mr-auto pl-1.5")}>
                   Esc 취소 · Ctrl+Enter 전송
                 </span>
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    padding: "6px 8px",
-                    fontFamily: "inherit",
-                  }}
+                  className="bg-transparent border-none text-xs text-[var(--text-muted)] cursor-pointer px-2 py-1.5 font-[inherit]"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmitEdit}
-                  style={{
-                    background: "var(--primary)",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "6px 14px",
-                    fontSize: 12,
-                    color: "var(--primary-foreground)",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    letterSpacing: "0.01em",
-                  }}
+                  className="bg-primary border-none rounded-md px-3.5 py-1.5 text-xs text-primary-foreground cursor-pointer font-[inherit] tracking-[0.01em]"
                 >
                   다시 질문
                 </button>
@@ -438,33 +274,16 @@ export default function ChatMessage({
             </div>
           ) : (
             <>
-              <div
-                style={{
-                  background: "color-mix(in oklch, var(--primary) 8%, var(--background))",
-                  border: "1px solid color-mix(in oklch, var(--primary) 12%, var(--border))",
-                  borderRadius: 12,
-                  padding: "9px 14px",
-                  color: "var(--foreground)",
-                  fontSize: 14,
-                  lineHeight: 1.55,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
-              >
+              <div className="bg-[color-mix(in_oklch,var(--primary)_8%,var(--background))] border border-[color-mix(in_oklch,var(--primary)_12%,var(--border))] rounded-xl px-3.5 py-[9px] text-foreground text-sm leading-[1.55] whitespace-pre-wrap break-words">
                 {message.content}
               </div>
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  alignItems: "center",
-                  gap: 2,
-                  marginTop: 5,
-                  opacity: hovered ? 1 : 0,
-                  transition: "opacity 0.15s",
-                }}
+                className={cn(
+                  "flex justify-end items-center gap-0.5 mt-[5px] transition-opacity duration-150",
+                  hovered ? "opacity-100" : "opacity-0"
+                )}
               >
-                <span style={{ ...metaStyle, marginRight: 2 }}>
+                <span className={cn(metaClass, "mr-0.5")}>
                   {formatTime(ts)}
                 </span>
                 <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="var(--success)" />
@@ -482,20 +301,15 @@ export default function ChatMessage({
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        padding: "6px 0 24px",
-        animation: "ms 0.28s ease",
-      }}
+      className="flex flex-col pt-1.5 pb-6 [animation:ms_0.28s_ease]"
     >
       {isStreaming && !message.content && <ThinkingIndicator />}
 
       {message.content && (
-        <div style={{ fontSize: 15, color: "var(--foreground)", lineHeight: 1.82 }}>
+        <div className="text-base text-foreground leading-[1.82]">
           {parsedContent}
           {isStreaming && (
-            <span style={{ animation: "cb 1s step-end infinite", color: "var(--primary)", marginLeft: 1 }}>
+            <span className="[animation:cb_1s_step-end_infinite] text-primary ml-[1px]">
               ▋
             </span>
           )}
@@ -503,17 +317,7 @@ export default function ChatMessage({
       )}
 
       {justCompleted && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            ...metaStyle,
-            color: "var(--success)",
-            marginTop: 7,
-            animation: "ms 0.3s ease",
-          }}
-        >
+        <div className="flex items-center gap-[5px] text-success mt-[7px] text-xs font-[tabular-nums] tracking-[0.025em] [animation:ms_0.3s_ease]">
           {I.check}
           <span>{formatTime(ts)} · 응답 완료</span>
         </div>
@@ -528,17 +332,8 @@ export default function ChatMessage({
       )}
 
       {message.interrupted && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-          <span style={{
-            display: "inline-flex",
-            background: "color-mix(in oklch, var(--destructive) 10%, transparent)",
-            border: "1px solid color-mix(in oklch, var(--destructive) 22%, transparent)",
-            color: "color-mix(in oklch, var(--destructive) 75%, var(--text-dim))",
-            borderRadius: 2,
-            padding: "1px 7px",
-            ...metaStyle,
-            fontSize: 10,
-          }}>
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="inline-flex bg-[color-mix(in_oklch,var(--destructive)_10%,transparent)] border border-[color-mix(in_oklch,var(--destructive)_22%,transparent)] text-[color-mix(in_oklch,var(--destructive)_75%,var(--text-dim))] rounded-xs px-[7px] py-[1px] text-xs font-[tabular-nums] tracking-[0.025em]">
             중단됨
           </span>
           {isLast && <Tb icon={I.refresh} tip="다시 생성" onClick={onRegenerate} />}
@@ -547,14 +342,10 @@ export default function ChatMessage({
 
       {!isStreaming && message.content && (
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            marginTop: 8,
-            opacity: hovered ? 1 : 0,
-            transition: "opacity 0.15s",
-          }}
+          className={cn(
+            "flex items-center gap-0.5 mt-2 transition-opacity duration-150",
+            hovered ? "opacity-100" : "opacity-0"
+          )}
         >
           <Tb
             icon={copied ? I.check : I.copy}
@@ -564,7 +355,7 @@ export default function ChatMessage({
             activeColor="var(--success)"
           />
           {isLast && !message.interrupted && <Tb icon={I.refresh} tip="다시 생성" onClick={onRegenerate} />}
-          <div style={{ width: 1, height: 14, background: "var(--border)", margin: "0 4px", flexShrink: 0 }} />
+          <div className="w-px h-3.5 bg-border mx-1 shrink-0" />
           <Tb
             icon={I.thumbUp}
             tip="도움이 됐어요"

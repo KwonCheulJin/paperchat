@@ -50,8 +50,8 @@ async function consumeIngestStream(
     } else if (event.type === "done") {
       const statusMsg =
         event.status === "duplicate"
-          ? `${file.name}: 이미 인덱싱된 문서`
-          : `${file.name}: 인덱싱 완료`;
+          ? `${file.name}: 이미 추가된 문서`
+          : `${file.name}: 추가 완료`;
       update((fp) => ({ ...fp, currentStatus: statusMsg }));
       return "success";
     } else if (event.type === "error") {
@@ -74,12 +74,23 @@ export const useDocumentsStore = create<DocumentsStore>((set) => ({
   folderProgress: null,
 
   loadDocuments: async () => {
-    try {
-      const docs = await listDocuments();
-      set({ documents: docs });
-    } catch (e) {
-      toast.error(`문서 목록 조회 실패: ${e instanceof Error ? e.message : String(e)}`);
+    const MAX_ATTEMPTS = 5;
+    let lastError: unknown;
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      try {
+        const docs = await listDocuments();
+        set({ documents: docs });
+        return;
+      } catch (e) {
+        lastError = e;
+        if (i < MAX_ATTEMPTS - 1) {
+          await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+        }
+      }
     }
+    toast.error(
+      `문서 목록 조회 실패: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+    );
   },
 
   uploadFile: async (file) => {

@@ -8,6 +8,13 @@ interface FloatingSidebarProps {
   triggerWidth?: number;
 }
 
+/**
+ * Pinned ↔ unpinned 전환과 hover slide-in을 동일한 cubic-bezier 200ms로 통일.
+ * - 래퍼: 폭 transition (256 ↔ triggerWidth). flex-1 main이 자연스럽게 확장/축소.
+ * - 카드: 항상 absolute (top-2 bottom-2 + left-2 or right-2). transform으로 슬라이드.
+ *   · 좌측: -x(110%) → 0  (왼쪽에서 오른쪽으로 미끄러져 나옴)
+ *   · 우측: +x(110%) → 0  (오른쪽에서 왼쪽으로 미끄러져 나옴)
+ */
 export default function FloatingSidebar({
   side,
   pinned,
@@ -17,46 +24,28 @@ export default function FloatingSidebar({
   const [hovered, setHovered] = useState(false);
   const open = pinned || hovered;
 
-  if (pinned) {
-    return (
-      <div
-        className={cn(
-          "w-[240px] shrink-0 bg-sidebar h-full overflow-hidden flex flex-col",
-          side === "left" ? "border-r border-border" : "border-l border-border",
-        )}
-      >
-        {children}
-      </div>
-    );
-  }
-
   return (
     <div
-      className="relative shrink-0 z-50"
-      style={{ width: triggerWidth }}
-      onMouseEnter={() => setHovered(true)}
+      className="relative shrink-0 z-40 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+      style={{ width: pinned ? 256 : triggerWidth }}
+      onMouseEnter={() => !pinned && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <div
         className={cn(
-          "absolute top-0 bottom-0 w-[240px] bg-sidebar flex flex-col overflow-hidden",
-          "transition-[transform,opacity,visibility] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
-          side === "left" ? "left-0 border-r border-border" : "right-0 border-l border-border",
+          "absolute top-2 bottom-2 w-[240px] bg-sidebar rounded-xl border border-border flex flex-col overflow-hidden",
+          "transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
+          side === "left" ? "left-2" : "right-2",
           open
-            ? "translate-x-0 opacity-100 visible"
+            ? "translate-x-0 opacity-100"
             : side === "left"
-            ? "-translate-x-full opacity-0 invisible"
-            : "translate-x-full opacity-0 invisible",
+            ? "-translate-x-[110%] opacity-0"
+            : "translate-x-[110%] opacity-0",
+          !pinned && open && side === "left" && "shadow-[4px_0_20px_rgba(0,0,0,0.5)]",
+          !pinned && open && side === "right" && "shadow-[-4px_0_20px_rgba(0,0,0,0.5)]",
         )}
-        style={{
-          boxShadow: open
-            ? side === "left"
-              ? "4px 0 20px rgba(0,0,0,0.5)"
-              : "-4px 0 20px rgba(0,0,0,0.5)"
-            : undefined,
-        }}
       >
-        <div className="w-[240px] shrink-0 flex flex-col h-full overflow-hidden">
+        <div className="w-full h-full flex flex-col overflow-hidden">
           {children}
         </div>
       </div>

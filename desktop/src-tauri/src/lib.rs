@@ -260,7 +260,7 @@ impl ProcessManager {
     }
 }
 
-pub struct ProcessManagerState(pub Mutex<ProcessManager>);
+pub(crate) struct ProcessManagerState(pub(crate) Mutex<ProcessManager>);
 
 // ─── 유틸리티 함수 ───────────────────────────────────────────────────────────
 

@@ -1,6 +1,8 @@
 import { UseModelStateReturn } from "../../hooks/use-model-state";
 import { GlobalStyles } from "../../shared/ui/global-styles";
 import { WinControls } from "../../shared/ui/win-controls";
+import { dragRegionHandlers } from "../../shared/ui/drag-region";
+import { cn } from "@/lib/utils";
 
 const ERROR_ADVICE: Array<{ patterns: string[]; advice: string }> = [
   { patterns: ["disk", "space", "enospc", "storage", "no space"], advice: "디스크 여유 공간을 확인하세요." },
@@ -50,278 +52,148 @@ export default function SetupScreen({ modelState }: Props) {
   return (
     <>
       <GlobalStyles />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100vh",
-          background: "var(--background)",
-          color: "var(--foreground)",
-        }}
-      >
+      <div className="flex flex-col h-screen bg-background text-foreground">
         {/* Drag region + window controls */}
         <div
           className="flex items-center justify-end h-[38px] shrink-0"
-          data-tauri-drag-region
+          {...dragRegionHandlers}
         >
           <WinControls />
         </div>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 480,
-            display: "flex",
-            flexDirection: "column",
-            gap: 24,
-            padding: 32,
-            background: "var(--sidebar)",
-            border: "1px solid var(--border)",
-            borderRadius: 4,
-            boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
-          }}
-        >
-          {/* 헤더 */}
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 20, fontWeight: 700, color: "var(--foreground)" }}>
-                paperchat 설정
-              </span>
-            </div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
-              {isFailed ? "설치 중 오류가 발생했습니다" : "채팅에 사용할 AI 모델을 다운로드합니다"}
-            </p>
-          </div>
-
-          {/* 하드웨어 정보 */}
-          {ramGb > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <span
-                style={{
-                  padding: "3px 10px",
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 2,
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  fontVariantNumeric: "tabular-nums",
-                  letterSpacing: "0.01em",
-                }}
-              >
-                RAM {ramGb}GB
-              </span>
-              {gpuName && (
-                <span
-                  title={gpuName}
-                  style={{
-                    padding: "3px 10px",
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 2,
-                    fontSize: 12,
-                    color: "var(--text-secondary)",
-                    maxWidth: 220,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {gpuName}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-full max-w-[480px] flex flex-col gap-6 p-8 bg-sidebar border border-border rounded-sm shadow-[0_24px_48px_rgba(0,0,0,0.6)]">
+            {/* 헤더 */}
+            <div>
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <span className="text-xl font-bold text-foreground">
+                  paperchat 설정
                 </span>
-              )}
-            </div>
-          )}
-
-          {/* 모델 선택 */}
-          {showModelSelect && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label htmlFor="model-select" style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
-                모델 선택
-              </label>
-              <select
-                id="model-select"
-                value={selectedModel?.filename ?? ""}
-                onChange={(e) => {
-                  const model = allModels.find((m) => m.filename === e.target.value);
-                  if (model) selectModel(model);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 2,
-                  fontSize: 13,
-                  color: "var(--foreground)",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  outline: "none",
-                }}
-              >
-                {allModels.map((m) => (
-                  <option key={m.filename} value={m.filename}>
-                    {m.name} ({m.size_gb}GB)
-                    {m.filename === recommendedModel?.filename ? " ★ 권장" : ""}
-                  </option>
-                ))}
-              </select>
-              {selectedModel && (
-                <p style={{ fontSize: 12, color: "var(--text-dim)", fontVariantNumeric: "tabular-nums" }}>
-                  {selectedModel.size_gb}GB 다운로드 필요
-                  {selectedModel.n_gpu_layers > 0 ? " · GPU 가속" : " · CPU 전용"}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* 로딩 (initializing / verifying / switching / loading) */}
-          {(isInitializing || isLoading) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text-dim)", fontSize: 13 }}>
-              <span style={{ animation: "tp 1.2s ease infinite", display: "inline-block", color: "var(--primary)" }}>•</span>
-              <span>{STAGE_LABELS[state] ?? "처리 중..."}</span>
-            </div>
-          )}
-
-          {/* 다운로드 진행 */}
-          {isDownloading && downloadProgress && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: 12,
-                color: "var(--text-muted)",
-                fontVariantNumeric: "tabular-nums",
-                letterSpacing: "0.01em",
-              }}>
-                <span>
-                  {downloadProgress.downloadedMb.toFixed(0)}MB / {downloadProgress.totalMb.toFixed(0)}MB
-                </span>
-                <span>{downloadProgress.speedMbps.toFixed(1)} MB/s</span>
               </div>
-              <div
-                style={{
-                  width: "100%",
-                  height: 4,
-                  background: "var(--surface-2)",
-                  borderRadius: 1,
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    background: "var(--primary)",
-                    borderRadius: 1,
-                    transform: `scaleX(${downloadProgress.percent / 100})`,
-                    transformOrigin: "left",
-                    transition: "transform 0.3s ease",
-                  }}
-                />
-              </div>
-              <p style={{
-                fontSize: 12,
-                color: "var(--text-dim)",
-                textAlign: "center",
-                fontVariantNumeric: "tabular-nums",
-              }}>
-                {downloadProgress.percent}% 완료
+              <p className="text-sm text-[var(--text-muted)] leading-[1.5]">
+                {isFailed ? "설치 중 오류가 발생했습니다" : "채팅에 사용할 AI 모델을 다운로드합니다"}
               </p>
             </div>
-          )}
 
-          {/* 오류 메시지 */}
-          {isFailed && failureReason && (
-            <div
-              style={{
-                padding: "10px 14px",
-                background: "color-mix(in oklch, var(--destructive) 8%, transparent)",
-                border: "1px solid color-mix(in oklch, var(--destructive) 25%, transparent)",
-                borderRadius: 2,
-                fontSize: 12,
-                color: "var(--text-muted)",
-                lineHeight: 1.6,
-              }}
-            >
-              {failureReason}
-              {getErrorAdvice(failureReason) && (
-                <p style={{ marginTop: 6, color: "var(--text-secondary)", fontWeight: 500 }}>
-                  {getErrorAdvice(failureReason)}
+            {/* 하드웨어 정보 */}
+            {ramGb > 0 && (
+              <div className="flex gap-1.5 flex-wrap">
+                <span className="px-2.5 py-[3px] bg-card border border-border rounded-xs text-xs text-[var(--text-secondary)] font-[tabular-nums] tracking-[0.01em]">
+                  RAM {ramGb}GB
+                </span>
+                {gpuName && (
+                  <span
+                    title={gpuName}
+                    className="px-2.5 py-[3px] bg-card border border-border rounded-xs text-xs text-[var(--text-secondary)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap"
+                  >
+                    {gpuName}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* 모델 선택 */}
+            {showModelSelect && (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="model-select" className="text-sm font-medium text-[var(--text-secondary)]">
+                  모델 선택
+                </label>
+                <select
+                  id="model-select"
+                  value={selectedModel?.filename ?? ""}
+                  onChange={(e) => {
+                    const model = allModels.find((m) => m.filename === e.target.value);
+                    if (model) selectModel(model);
+                  }}
+                  className="w-full px-3 py-2 bg-card border border-border rounded-xs text-sm text-foreground cursor-pointer font-[inherit] outline-none"
+                >
+                  {allModels.map((m) => (
+                    <option key={m.filename} value={m.filename}>
+                      {m.name} ({m.size_gb}GB)
+                      {m.filename === recommendedModel?.filename ? " ★ 권장" : ""}
+                    </option>
+                  ))}
+                </select>
+                {selectedModel && (
+                  <p className="text-xs text-[var(--text-dim)] font-[tabular-nums]">
+                    {selectedModel.size_gb}GB 다운로드 필요
+                    {selectedModel.n_gpu_layers > 0 ? " · GPU 가속" : " · CPU 전용"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 로딩 (initializing / verifying / switching / loading) */}
+            {(isInitializing || isLoading) && (
+              <div className="flex items-center gap-2.5 text-[var(--text-dim)] text-sm">
+                <span className="inline-block text-primary [animation:tp_1.2s_ease_infinite]">•</span>
+                <span>{STAGE_LABELS[state] ?? "처리 중..."}</span>
+              </div>
+            )}
+
+            {/* 다운로드 진행 */}
+            {isDownloading && downloadProgress && (
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between text-xs text-[var(--text-muted)] font-[tabular-nums] tracking-[0.01em]">
+                  <span>
+                    {downloadProgress.downloadedMb.toFixed(0)}MB / {downloadProgress.totalMb.toFixed(0)}MB
+                  </span>
+                  <span>{downloadProgress.speedMbps.toFixed(1)} MB/s</span>
+                </div>
+                <div className="w-full h-1 bg-[var(--surface-2)] rounded-[1px] overflow-hidden">
+                  <div
+                    className="w-full h-full bg-primary rounded-[1px] origin-left transition-transform duration-300 ease"
+                    style={{ transform: `scaleX(${downloadProgress.percent / 100})` }}
+                  />
+                </div>
+                <p className="text-xs text-[var(--text-dim)] text-center font-[tabular-nums]">
+                  {downloadProgress.percent}% 완료
                 </p>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* 버튼 */}
-          {(showModelSelect || isDownloading || isFailed) && (
-            <div>
-              {isDownloading ? (
-                <button
-                  onClick={cancelDownload}
-                  style={{
-                    width: "100%",
-                    padding: "10px 16px",
-                    background: "transparent",
-                    border: "1px solid var(--input)",
-                    borderRadius: 2,
-                    fontSize: 13,
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    transition: "border-color 0.15s, color 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--text-dim)";
-                    e.currentTarget.style.color = "var(--text-secondary)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "var(--input)";
-                    e.currentTarget.style.color = "var(--text-muted)";
-                  }}
-                >
-                  취소
-                </button>
-              ) : (
-                <button
-                  onClick={startInstall}
-                  disabled={!selectedModel}
-                  style={{
-                    width: "100%",
-                    padding: "10px 16px",
-                    background: selectedModel ? "var(--primary)" : "var(--border)",
-                    border: "none",
-                    borderRadius: 2,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: selectedModel ? "var(--background)" : "var(--text-dim)",
-                    cursor: selectedModel ? "pointer" : "not-allowed",
-                    fontFamily: "inherit",
-                    transition: "opacity 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selectedModel) e.currentTarget.style.opacity = "0.88";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                  }}
-                >
-                  {isFailed
-                    ? "다시 시도"
-                    : selectedModel
-                    ? `${selectedModel.name} 다운로드 (${selectedModel.size_gb}GB)`
-                    : "모델을 선택하세요"}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+            {/* 오류 메시지 */}
+            {isFailed && failureReason && (
+              <div className="px-3.5 py-2.5 bg-[color-mix(in_oklch,var(--destructive)_8%,transparent)] border border-[color-mix(in_oklch,var(--destructive)_25%,transparent)] rounded-xs text-xs text-[var(--text-muted)] leading-[1.6]">
+                {failureReason}
+                {getErrorAdvice(failureReason) && (
+                  <p className="mt-1.5 text-[var(--text-secondary)] font-medium">
+                    {getErrorAdvice(failureReason)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 버튼 */}
+            {(showModelSelect || isDownloading || isFailed) && (
+              <div>
+                {isDownloading ? (
+                  <button
+                    onClick={cancelDownload}
+                    className="w-full px-4 py-2.5 bg-transparent border border-[var(--input)] rounded-xs text-sm text-[var(--text-muted)] cursor-pointer font-[inherit] transition-[border-color,color] duration-150 hover:border-[var(--text-dim)] hover:text-[var(--text-secondary)]"
+                  >
+                    취소
+                  </button>
+                ) : (
+                  <button
+                    onClick={startInstall}
+                    disabled={!selectedModel}
+                    className={cn(
+                      "w-full px-4 py-2.5 border-none rounded-xs text-sm font-semibold font-[inherit] transition-opacity duration-150",
+                      selectedModel
+                        ? "bg-primary text-background cursor-pointer hover:opacity-[0.88]"
+                        : "bg-border text-[var(--text-dim)] cursor-not-allowed"
+                    )}
+                  >
+                    {isFailed
+                      ? "다시 시도"
+                      : selectedModel
+                      ? `${selectedModel.name} 다운로드 (${selectedModel.size_gb}GB)`
+                      : "모델을 선택하세요"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

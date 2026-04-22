@@ -15,49 +15,40 @@ export default function SessionSidebar() {
 
   return (
     <div className="flex flex-col h-full bg-sidebar overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-[14px] pt-[14px] pb-2 shrink-0">
-        <span className="text-[11px] font-semibold text-[var(--text-dim)] tracking-[0.1em] uppercase">
-          paperchat
-        </span>
-      </div>
-
       {/* 새 채팅 */}
-      <div className="px-2 pb-2 shrink-0">
+      <div className="px-2 pt-3 pb-2 shrink-0">
         <button
           onClick={createSession}
-          className="flex items-center gap-[9px] w-full bg-transparent border-none rounded-[3px] px-2 py-[7px] text-[13px] text-[var(--text-muted)] cursor-pointer text-left font-[inherit] transition-colors duration-[120ms] hover:bg-card hover:text-[var(--text-secondary)]"
+          className="flex items-center gap-[9px] w-full bg-transparent border-none rounded-[3px] px-2 py-2 text-sm text-[var(--text-muted)] cursor-pointer text-left font-[inherit] transition-colors duration-[120ms] hover:bg-card hover:text-[var(--text-secondary)]"
         >
           {I.chat}
           <span>새 채팅</span>
         </button>
       </div>
 
-      <div className="h-px bg-[var(--surface-2)] shrink-0 mx-2" />
-
       {/* Search */}
       {sessions.length > 0 && (
-        <div className="px-2 pt-[6px] pb-[2px] shrink-0">
+        <div className="px-2 pt-1.5 pb-0.5 shrink-0">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="대화 검색..."
-            className="w-full bg-card border border-border rounded-[3px] px-[10px] py-[5px] text-[12px] text-foreground outline-none font-[inherit] transition-colors duration-[120ms] focus:border-primary/40"
+            className="w-full bg-card border border-border rounded-[3px] px-2.5 py-[5px] text-xs text-foreground outline-none font-[inherit] transition-colors duration-[120ms] focus:border-primary/40"
           />
         </div>
       )}
 
       {/* Recents label */}
-      <div className="px-[14px] pt-2 pb-1 shrink-0">
-        <span className="text-[10px] font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em]">
+      <div className="px-3.5 pt-2 pb-1 shrink-0">
+        <span className="text-xs font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em]">
           최근
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-[2px]" role="list">
+      <div className="flex-1 overflow-y-auto px-2 py-0.5" role="list">
         {sessions.length === 0 ? (
-          <p className="text-[11px] text-[var(--text-dim)] text-center px-2 py-4">
+          <p className="text-xs text-[var(--text-dim)] text-center px-2 py-4">
             새 채팅을 눌러 시작하세요
           </p>
         ) : null}
@@ -66,7 +57,7 @@ export default function SessionSidebar() {
           const filtered = q ? sessions.filter((s) => s.title.toLowerCase().includes(q)) : sessions;
           if (sessions.length > 0 && q && filtered.length === 0) {
             return (
-              <p className="text-[11px] text-[var(--text-dim)] text-center px-2 py-4">
+              <p className="text-xs text-[var(--text-dim)] text-center px-2 py-4">
                 일치하는 대화가 없습니다
               </p>
             );
@@ -98,14 +89,14 @@ export default function SessionSidebar() {
                   <span className="flex-1 min-w-0" style={{ paddingRight: isHovered ? 22 : 0 }}>
                     <span
                       className={cn(
-                        "block text-[13px] overflow-hidden text-ellipsis whitespace-nowrap transition-colors duration-100",
+                        "block text-sm overflow-hidden text-ellipsis whitespace-nowrap transition-colors duration-100",
                         isActive ? "text-foreground" : "text-[var(--text-muted)]",
                       )}
                     >
                       {session.title}
                     </span>
                     {isActive && (
-                      <span className="block text-[10px] text-[var(--text-dim)] mt-[1px] tracking-[0.01em]">
+                      <span className="block text-xs text-[var(--text-dim)] mt-[1px] tracking-[0.01em]">
                         {activeProfileLabel}
                       </span>
                     )}
@@ -118,7 +109,7 @@ export default function SessionSidebar() {
                     setDeleteTarget({ id: session.id, title: session.title });
                   }}
                   className={cn(
-                    "absolute right-[6px] top-1/2 -translate-y-1/2 bg-transparent border-none p-[2px] cursor-pointer text-[var(--text-dim)] flex items-center rounded-[2px] transition-[color,opacity] duration-100 hover:text-destructive font-[inherit]",
+                    "absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-none p-0.5 cursor-pointer text-[var(--text-dim)] flex items-center rounded-xs transition-[color,opacity] duration-100 hover:text-destructive font-[inherit]",
                     isHovered ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
                   )}
                   title="삭제"
