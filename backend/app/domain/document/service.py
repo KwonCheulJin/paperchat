@@ -22,7 +22,7 @@ from app.core.entity_patterns import extract_entities
 from app.core.logging_config import get_logger
 from app.domain.document.chunker import _chunk_pages_hierarchical
 from app.domain.document.indexer import _check_duplicate, _get_file_hash, _save_document
-from app.domain.document.parser import _extract_text, _extract_text_ocr
+from app.domain.document.parser import _extract_text, _extract_text_ocr, _find_tesseract_cmd
 from app.domain.rag.scheduler import get_scheduler
 from app.infrastructure.vector_store.chroma_adapter import upsert_chunks
 
@@ -87,18 +87,25 @@ async def ingest_pdf(
 
     # 2-1. 텍스트 레이어 없음 → OCR 폴백 (스캔 PDF)
     if not pages:
+        # Tesseract 없음 → 프론트엔드에 자동 설치 요청
+        if _find_tesseract_cmd() is None:
+            logger.warning("tesseract_not_found", filename=filename)
+            yield _sse({"type": "tesseract_missing", "message": "스캔 PDF 처리를 위한 OCR 엔진이 없습니다. 자동으로 설치합니다..."})
+            return
+
         yield _sse({"type": "progress", "message": "OCR 처리 중... (스캔 PDF 감지됨)"})
         try:
             pages = await asyncio.get_event_loop().run_in_executor(
                 None, _extract_text_ocr, content
             )
         except Exception as e:
-            logger.error("ocr_failed", error=str(e))
-            yield _sse({"type": "error", "message": "OCR 처리 실패: Tesseract OCR이 설치되어 있는지 확인하세요."})
+            err_msg = str(e)
+            logger.error("ocr_failed", error=err_msg)
+            yield _sse({"type": "error", "message": f"OCR 처리 중 오류가 발생했습니다: {err_msg}"})
             return
 
         if not pages:
-            yield _sse({"type": "error", "message": "PDF 텍스트 추출 실패: 이미지 품질이 너무 낮거나 텍스트가 없는 문서입니다."})
+            yield _sse({"type": "error", "message": "스캔 PDF에서 텍스트를 인식하지 못했습니다. 이미지 해상도가 너무 낮거나 지원하지 않는 언어일 수 있습니다."})
             return
 
     # 3. 계층적 청킹

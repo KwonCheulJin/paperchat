@@ -38,46 +38,17 @@ export default function ChatPage() {
   return (
     <>
       <GlobalStyles />
-      <div
-        style={{
-          display: "flex",
-          height: "100vh",
-          background: "var(--background)",
-          color: "var(--foreground)",
-          overflow: "hidden",
-        }}
-      >
+      <div className="flex h-screen bg-background text-foreground overflow-hidden">
         {/* Left sidebar */}
-        <FloatingSidebar
-          side="left"
-          pinned={leftPinned}
-        >
+        <FloatingSidebar side="left" pinned={leftPinned}>
           <SessionSidebar />
         </FloatingSidebar>
 
         {/* Main content */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minWidth: 0,
-            height: "100%",
-          }}
-        >
-          {/* TopBar breadcrumb */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0 12px",
-              height: 44,
-              borderBottom: "1px solid var(--surface-2)",
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="flex-1 flex flex-col min-w-0 h-full">
+          {/* TopBar */}
+          <div className="flex items-center justify-between px-3 h-[44px] shrink-0">
+            <div className="flex items-center gap-2">
               <Tb
                 icon={I.sidebarL}
                 tip={leftPinned ? "사이드바 해제" : "사이드바 고정"}
@@ -85,37 +56,21 @@ export default function ChatPage() {
                 act={leftPinned}
                 activeColor="var(--primary)"
               />
-              <span style={{ fontSize: 13, color: "var(--text-dim)" }}>paperchat</span>
-              <span style={{ fontSize: 13, color: "var(--text-dim)" }}>/</span>
-              <span
-                style={{
-                  fontSize: 13,
-                  color: "var(--text-secondary)",
-                  maxWidth: 200,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <span className="text-[13px] text-[var(--text-dim)]">paperchat</span>
+              <span className="text-[13px] text-[var(--text-dim)]">/</span>
+              <span className="text-[13px] text-[var(--text-secondary)] max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
                 {sessionTitle}
               </span>
               {activeFolder && (
                 <div
+                  className="flex items-center gap-1 px-2 py-[2px] rounded-[4px] text-[11px] text-primary shrink-0"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "2px 8px",
                     background: "color-mix(in oklch, var(--primary) 12%, transparent)",
                     border: "1px solid color-mix(in oklch, var(--primary) 30%, transparent)",
-                    borderRadius: 4,
-                    fontSize: 11,
-                    color: "var(--primary)",
-                    flexShrink: 0,
                   }}
                   title="활성 폴더: 이 폴더 문서만 검색에 사용됩니다"
                 >
-                  <span style={{ display: "flex" }}>{I.folder}</span>
+                  <span className="flex">{I.folder}</span>
                   <span>{activeFolder}</span>
                 </div>
               )}
@@ -137,10 +92,7 @@ export default function ChatPage() {
         </div>
 
         {/* Right sidebar */}
-        <FloatingSidebar
-          side="right"
-          pinned={rightPinned}
-        >
+        <FloatingSidebar side="right" pinned={rightPinned}>
           <DocumentPanel onClose={() => setRightPinned(false)} />
         </FloatingSidebar>
       </div>

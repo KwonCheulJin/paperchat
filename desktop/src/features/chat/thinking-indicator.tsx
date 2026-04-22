@@ -16,27 +16,20 @@ export default function ThinkingIndicator() {
   const label = PHASE_LABELS[streamingPhase ?? ""] ?? "처리 중...";
 
   return (
-    <div
-      role="status"
-      aria-label={label}
-      style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+    <div role="status" aria-label={label} className="flex items-center gap-[10px] py-[10px]">
+      <div className="flex items-center gap-[3px]">
         {BARS.map(({ id, height, delay }) => (
           <div
             key={id}
-            style={{
-              width: 2,
-              height,
-              borderRadius: 1,
-              background: "var(--primary)",
-              transformOrigin: "center",
-              animation: `bar 1.4s cubic-bezier(0.4, 0, 0.6, 1) ${delay}s infinite`,
-            }}
+            className="w-[2px] rounded-[1px] bg-primary origin-center"
+            style={{ height, animation: `bar 1.4s cubic-bezier(0.4, 0, 0.6, 1) ${delay}s infinite` }}
           />
         ))}
       </div>
-      <span style={{ color: "var(--text-dim)", fontSize: 12, animation: "fi 0.4s ease" }}>
+      <span
+        className="text-[12px] text-[var(--text-dim)]"
+        style={{ animation: "fi 0.4s ease" }}
+      >
         {label}
       </span>
     </div>

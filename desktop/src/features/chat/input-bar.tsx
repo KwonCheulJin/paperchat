@@ -4,6 +4,7 @@ import { useDocumentsStore } from "../../store/documents";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import ProfileSelector from "./profile-selector";
+import { cn } from "@/lib/utils";
 
 const MAX_CHARS = 4000;
 
@@ -77,19 +78,13 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
   const nearLimit = charCount > MAX_CHARS * 0.8;
 
   return (
-    <div
-      style={{
-        padding: "12px 24px 16px",
-        background: "var(--background)",
-        borderTop: "1px solid var(--surface-2)",
-      }}
-    >
+    <div className="px-6 pt-3 pb-4 bg-background">
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
         type="file"
         accept=".pdf"
-        style={{ display: "none" }}
+        className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) uploadFile(file);
@@ -102,7 +97,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
         type="file"
         accept=".pdf"
         {...{ webkitdirectory: "" }}
-        style={{ display: "none" }}
+        className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []).filter((f) =>
             f.name.endsWith(".pdf")
@@ -119,22 +114,13 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
 
       {/* Main input container */}
       <div
-        style={{
-          maxWidth: 760,
-          margin: "0 auto",
-          background: "var(--card)",
-          border: "1px solid color-mix(in oklch, var(--primary) 10%, var(--border))",
-          borderRadius: 4,
-          padding: "10px 10px 8px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
+        className="max-w-[760px] mx-auto bg-card rounded-[4px] p-[10px_10px_8px] flex flex-col gap-2"
+        style={{ border: "1px solid color-mix(in oklch, var(--primary) 10%, var(--border))" }}
       >
         {/* Textarea row */}
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+        <div className="flex items-center gap-[6px]">
           {/* Upload button + popup */}
-          <div ref={menuRef} style={{ position: "relative" }}>
+          <div ref={menuRef} className="relative">
             <Tb
               icon={I.attach}
               tip="파일 업로드"
@@ -143,76 +129,17 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               activeColor="var(--primary)"
             />
             {showUploadMenu && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "calc(100% + 4px)",
-                  left: 0,
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 4,
-                  padding: "3px",
-                  zIndex: 50,
-                  minWidth: 160,
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-                }}
-              >
+              <div className="absolute bottom-[calc(100%+4px)] left-0 bg-card border border-border rounded-[4px] p-[3px] z-50 min-w-[160px] shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    background: "transparent",
-                    border: "none",
-                    borderRadius: 2,
-                    padding: "7px 10px",
-                    fontSize: 13,
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontFamily: "inherit",
-                    transition: "background 0.1s, color 0.1s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--surface-2)";
-                    e.currentTarget.style.color = "var(--text-secondary)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "var(--text-muted)";
-                  }}
+                  className="flex items-center gap-2 w-full bg-transparent border-none rounded-[2px] px-[10px] py-[7px] text-[13px] text-[var(--text-muted)] cursor-pointer text-left font-[inherit] transition-[background,color] duration-100 hover:bg-[var(--surface-2)] hover:text-[var(--text-secondary)]"
                 >
                   {I.attach}
                   <span>PDF 파일 추가</span>
                 </button>
                 <button
                   onClick={() => folderInputRef.current?.click()}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    background: "transparent",
-                    border: "none",
-                    borderRadius: 2,
-                    padding: "7px 10px",
-                    fontSize: 13,
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontFamily: "inherit",
-                    transition: "background 0.1s, color 0.1s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--surface-2)";
-                    e.currentTarget.style.color = "var(--text-secondary)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "var(--text-muted)";
-                  }}
+                  className="flex items-center gap-2 w-full bg-transparent border-none rounded-[2px] px-[10px] py-[7px] text-[13px] text-[var(--text-muted)] cursor-pointer text-left font-[inherit] transition-[background,color] duration-100 hover:bg-[var(--surface-2)] hover:text-[var(--text-secondary)]"
                 >
                   {I.folder}
                   <span>폴더 추가</span>
@@ -240,27 +167,15 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                 : "메시지를 입력하세요..."
             }
             rows={1}
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              resize: "none",
-              color: "var(--foreground)",
-              fontSize: 14,
-              lineHeight: 1.5,
-              fontFamily: "inherit",
-              minHeight: 24,
-              maxHeight: 160,
-              padding: "2px 0",
-              opacity: isStreaming ? 0.5 : 1,
-            }}
+            className={cn(
+              "flex-1 bg-transparent border-none outline-none resize-none text-foreground",
+              "text-[14px] leading-[1.5] font-[inherit] min-h-[24px] max-h-[160px] py-[2px]",
+              isStreaming && "opacity-50",
+            )}
           />
 
           {/* Profile selector */}
-          <div style={{ alignSelf: "flex-end" }}>
-            <ProfileSelector />
-          </div>
+          <ProfileSelector />
 
           {/* Send / Stop button */}
           {isStreaming ? (
@@ -268,22 +183,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               onClick={stopStreaming}
               title="중지"
               aria-label="응답 중지"
-              style={{
-                flexShrink: 0,
-                width: 32,
-                height: 32,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "var(--destructive)",
-                border: "none",
-                borderRadius: 2,
-                cursor: "pointer",
-                color: "var(--destructive-foreground)",
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in oklch, var(--destructive) 85%, black)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--destructive)")}
+              className="shrink-0 w-8 h-8 flex items-center justify-center bg-destructive border-none rounded-[2px] cursor-pointer text-destructive-foreground transition-colors duration-150 hover:opacity-90"
             >
               {I.stop}
             </button>
@@ -293,26 +193,12 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               disabled={!canSend}
               title="전송 (Enter)"
               aria-label="메시지 전송"
-              style={{
-                flexShrink: 0,
-                width: 32,
-                height: 32,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: canSend ? "var(--primary)" : "var(--border)",
-                border: "none",
-                borderRadius: 2,
-                cursor: canSend ? "pointer" : "not-allowed",
-                color: canSend ? "var(--primary-foreground)" : "var(--text-dim)",
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                if (canSend) e.currentTarget.style.background = "color-mix(in oklch, var(--primary) 80%, black)";
-              }}
-              onMouseLeave={(e) => {
-                if (canSend) e.currentTarget.style.background = "var(--primary)";
-              }}
+              className={cn(
+                "shrink-0 w-8 h-8 flex items-center justify-center border-none rounded-[2px] transition-colors duration-150",
+                canSend
+                  ? "bg-primary text-primary-foreground cursor-pointer hover:opacity-90"
+                  : "bg-border text-[var(--text-dim)] cursor-not-allowed",
+              )}
             >
               {I.send}
             </button>
@@ -320,25 +206,16 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
         </div>
 
         {/* Footer row */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            paddingLeft: 2,
-          }}
-        >
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+        <div className="flex justify-between items-center pl-[2px]">
+          <span className="text-[11px] text-[var(--text-muted)]">
             Enter로 전송 · Shift+Enter로 줄바꿈 · ⌘⇧D 문서 패널
           </span>
           <span
-            style={{
-              fontSize: 11,
-              color: nearLimit ? "var(--destructive)" : "var(--text-dim)",
-              opacity: charCount === 0 ? 0.4 : 1,
-              fontVariantNumeric: "tabular-nums",
-              letterSpacing: "0.01em",
-            }}
+            className={cn(
+              "text-[11px] font-[tabular-nums] tracking-[0.01em]",
+              nearLimit ? "text-destructive" : "text-[var(--text-dim)]",
+              charCount === 0 && "opacity-40",
+            )}
           >
             {charCount === 0 ? `최대 ${MAX_CHARS.toLocaleString()}자` : `${charCount} / ${MAX_CHARS}`}
           </span>

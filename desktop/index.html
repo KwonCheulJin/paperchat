@@ -1,10 +1,19 @@
 <!doctype html>
-<html lang="ko" class="dark">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="/src/styles/globals.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DocRAG</title>
+    <script>
+      (function () {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        if (mq.matches) document.documentElement.classList.add('dark');
+        mq.addEventListener('change', (e) => {
+          document.documentElement.classList.toggle('dark', e.matches);
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

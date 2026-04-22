@@ -4,6 +4,7 @@ import {
   listDocuments,
   deleteDocument as apiDeleteDocument,
   ingestPDF,
+  installTesseract,
   type DocumentInfo,
 } from "../lib/api";
 
@@ -15,6 +16,8 @@ export type FolderProgress = {
   currentFile: string;  // 현재 처리 중인 파일명
   currentStatus: string; // 백엔드 진행 메시지
   hasRetry: boolean;    // 실패 파일 재시도 가능 여부
+  chunkDone: number;    // 현재 파일의 임베딩 완료 청크 수
+  chunkTotal: number;   // 현재 파일의 전체 청크 수 (0이면 청크 정보 없음)
 };
 
 type DocumentsStore = {
@@ -29,16 +32,21 @@ type DocumentsStore = {
 };
 
 // 단일 파일 SSE 스트림 소비 (내부 헬퍼)
-// update 콜백: currentFile/currentStatus 갱신만 담당
-// 반환값: 성공 여부
 async function consumeIngestStream(
   file: File,
   folder: string,
   update: (updater: (fp: FolderProgress) => FolderProgress) => void,
-): Promise<"success" | "failure"> {
+): Promise<"success" | "failure" | "tesseract_missing"> {
   for await (const event of ingestPDF(file, folder)) {
     if (event.type === "progress") {
-      update((fp) => ({ ...fp, currentFile: file.name, currentStatus: event.message }));
+      const match = event.message.match(/\((\d+)\/(\d+)\s*청크\)/);
+      if (match) {
+        const chunkDone = parseInt(match[1], 10);
+        const chunkTotal = parseInt(match[2], 10);
+        update((fp) => ({ ...fp, currentFile: file.name, currentStatus: event.message, chunkDone, chunkTotal }));
+      } else {
+        update((fp) => ({ ...fp, currentFile: file.name, currentStatus: event.message }));
+      }
     } else if (event.type === "done") {
       const statusMsg =
         event.status === "duplicate"
@@ -49,6 +57,8 @@ async function consumeIngestStream(
     } else if (event.type === "error") {
       toast.error(`${file.name}: ${event.message}`);
       return "failure";
+    } else if (event.type === "tesseract_missing") {
+      return "tesseract_missing";
     }
   }
   return "failure";
@@ -97,6 +107,8 @@ export const useDocumentsStore = create<DocumentsStore>((set) => ({
         currentFile: "",
         currentStatus: "준비 중...",
         hasRetry: false,
+        chunkDone: 0,
+        chunkTotal: 0,
       },
     });
 
@@ -114,10 +126,27 @@ export const useDocumentsStore = create<DocumentsStore>((set) => ({
     try {
     // 순차 업로드 — Promise.all 병렬 금지
       for (const file of files) {
-        update((fp) => ({ ...fp, currentFile: file.name, currentStatus: "업로드 중..." }));
+        update((fp) => ({ ...fp, currentFile: file.name, currentStatus: "업로드 중...", chunkDone: 0, chunkTotal: 0 }));
         let result: "success" | "failure";
         try {
-          result = await consumeIngestStream(file, folder, update);
+          const raw = await consumeIngestStream(file, folder, update);
+          if (raw === "tesseract_missing") {
+            // OCR 엔진 자동 설치 후 재시도 (1회)
+            try {
+              update((fp) => ({ ...fp, currentStatus: "OCR 엔진 설치 중..." }));
+              await installTesseract((_step, message) => {
+                update((fp) => ({ ...fp, currentStatus: `OCR 설치: ${message}` }));
+              });
+              update((fp) => ({ ...fp, currentStatus: "재처리 중..." }));
+              const retryRaw = await consumeIngestStream(file, folder, update);
+              result = retryRaw === "tesseract_missing" ? "failure" : retryRaw;
+            } catch (e) {
+              toast.error(`OCR 엔진 설치 실패: ${e instanceof Error ? e.message : String(e)}`);
+              result = "failure";
+            }
+          } else {
+            result = raw;
+          }
         } catch (e) {
           toast.error(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
           result = "failure";

@@ -351,7 +351,14 @@ export default function ChatMessage({
       >
         <div style={{ maxWidth: "72%" }}>
           {editing ? (
-            <>
+            <div
+              style={{
+                background: "var(--card)",
+                border: "1px solid color-mix(in oklch, var(--primary) 22%, var(--border))",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
               <textarea
                 aria-label="질문 편집"
                 value={editedContent}
@@ -369,21 +376,30 @@ export default function ChatMessage({
                 }}
                 style={{
                   width: "100%",
-                  background: "color-mix(in oklch, var(--primary) 5%, var(--background))",
-                  border: "1px solid color-mix(in oklch, var(--primary) 22%, var(--border))",
-                  borderRadius: 2,
-                  padding: "9px 14px",
+                  background: "transparent",
+                  border: "none",
+                  padding: "12px 14px",
                   color: "var(--foreground)",
                   fontSize: 14,
                   lineHeight: 1.55,
                   resize: "none",
-                  boxSizing: "border-box",
+                  boxSizing: "border-box" as const,
                   fontFamily: "inherit",
                   outline: "none",
+                  display: "block",
                 }}
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: 6 }}>
-                <span style={{ ...metaStyle, marginRight: "auto" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "6px 8px 8px",
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
+                <span style={{ ...metaStyle, marginRight: "auto", paddingLeft: 6 }}>
                   Esc 취소 · Ctrl+Enter 전송
                 </span>
                 <button
@@ -407,7 +423,7 @@ export default function ChatMessage({
                   style={{
                     background: "var(--primary)",
                     border: "none",
-                    borderRadius: 2,
+                    borderRadius: 6,
                     padding: "6px 14px",
                     fontSize: 12,
                     color: "var(--primary-foreground)",
@@ -419,14 +435,14 @@ export default function ChatMessage({
                   다시 질문
                 </button>
               </div>
-            </>
+            </div>
           ) : (
             <>
               <div
                 style={{
                   background: "color-mix(in oklch, var(--primary) 8%, var(--background))",
                   border: "1px solid color-mix(in oklch, var(--primary) 12%, var(--border))",
-                  borderRadius: 2,
+                  borderRadius: 12,
                   padding: "9px 14px",
                   color: "var(--foreground)",
                   fontSize: 14,
@@ -444,15 +460,15 @@ export default function ChatMessage({
                   alignItems: "center",
                   gap: 2,
                   marginTop: 5,
+                  opacity: hovered ? 1 : 0,
+                  transition: "opacity 0.15s",
                 }}
               >
                 <span style={{ ...metaStyle, marginRight: 2 }}>
                   {formatTime(ts)}
                 </span>
-                <div style={{ display: "flex", opacity: hovered ? 1 : 0, transition: "opacity 0.15s" }}>
-                  <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="var(--success)" />
-                  <Tb icon={I.edit} tip="편집" onClick={() => setEditing(true)} disabled={isStreaming} />
-                </div>
+                <Tb icon={copied ? I.check : I.copy} tip={copied ? "복사됨" : "복사"} onClick={handleCopy} act={copied} activeColor="var(--success)" />
+                <Tb icon={I.edit} tip="편집" onClick={() => setEditing(true)} disabled={isStreaming} />
               </div>
             </>
           )}

@@ -4,6 +4,7 @@ import ChatMessage from "./chat-message";
 import { I } from "../../shared/ui/icons";
 import { AlertDialog } from "../../shared/ui/alert-dialog";
 import { PROFILES } from "../../shared/profiles";
+import { cn } from "@/lib/utils";
 
 interface MessageListProps {
   onRightPanelToggle: () => void;
@@ -17,7 +18,6 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const pendingRegenerateRef = useRef<string | null>(null);
   const [pendingEdit, setPendingEdit] = useState<{ id: string; content: string; subsequentCount: number } | null>(null);
-  // 사용자가 위로 스크롤했는지 추적 — true면 자동 스크롤 억제
   const userScrolledRef = useRef(false);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
@@ -27,14 +27,12 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
     bottomRef.current?.scrollIntoView({ behavior });
   }, []);
 
-  // Auto-scroll: 사용자가 스크롤하지 않은 경우에만 실행
   useEffect(() => {
     if (!userScrolledRef.current) {
       scrollToBottom();
     }
   }, [messages.length, messages[messages.length - 1]?.content, scrollToBottom]);
 
-  // 스크롤 위치 감지
   const handleScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -65,78 +63,33 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
     const currentProfile = PROFILES.find((p) => p.value === profile) ?? PROFILES[0];
     return (
       <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: "24px",
-          animation: "fi 0.4s ease",
-        }}
+        className="flex-1 flex flex-col justify-center p-6"
+        style={{ animation: "fi 0.4s ease" }}
       >
-        <div style={{ maxWidth: 560, width: "100%", margin: "0 auto" }}>
+        <div className="max-w-[560px] w-full mx-auto">
           {/* Profile context */}
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginBottom: 24 }}>
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-dim)",
-                marginBottom: 10,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-              }}
-            >
+          <div className="pt-5 mb-6">
+            <p className="text-[11px] text-[var(--text-dim)] mb-[10px] tracking-[0.05em] uppercase">
               {currentProfile.label}
             </p>
-            <p style={{ fontSize: 16, color: "var(--foreground)", lineHeight: 1.65 }}>
+            <p className="text-[16px] text-foreground leading-[1.65]">
               {currentProfile.subtitle}
             </p>
           </div>
 
           {/* Suggestion list */}
-          <div style={{ marginBottom: 28 }}>
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-dim)",
-                marginBottom: 10,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-              }}
-            >
+          <div className="mb-7">
+            <p className="text-[11px] text-[var(--text-dim)] mb-[10px] tracking-[0.06em] uppercase">
               시작 질문
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <div className="flex flex-col gap-0">
               {currentProfile.suggestions.map((s, idx) => (
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    padding: "7px 0",
-                    fontSize: 13,
-                    color: "var(--text-secondary)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    fontFamily: "inherit",
-                    transition: "color 0.12s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+                  className="bg-transparent border-none py-[7px] text-[13px] text-[var(--text-secondary)] cursor-pointer text-left flex items-start gap-3 font-[inherit] transition-colors duration-[120ms] hover:text-foreground"
                 >
-                  <span style={{
-                    color: "var(--text-dim)",
-                    flexShrink: 0,
-                    fontSize: 10,
-                    fontVariantNumeric: "tabular-nums",
-                    letterSpacing: "0.02em",
-                    minWidth: 16,
-                    marginTop: 3,
-                  }}>
+                  <span className="text-[var(--text-dim)] shrink-0 text-[10px] tabular-nums tracking-[0.02em] min-w-[16px] mt-[3px]">
                     {String(idx + 1).padStart(2, "0")}
                   </span>
                   <span>{s}</span>
@@ -148,21 +101,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
           {/* Document hint */}
           <button
             onClick={onRightPanelToggle}
-            style={{
-              background: "transparent",
-              border: "none",
-              padding: 0,
-              fontSize: 12,
-              color: "var(--text-dim)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontFamily: "inherit",
-              transition: "color 0.12s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
+            className="bg-transparent border-none p-0 text-[12px] text-[var(--text-dim)] cursor-pointer flex items-center gap-[6px] font-[inherit] transition-colors duration-[120ms] hover:text-[var(--text-muted)]"
           >
             {I.folder}
             <span>문서를 추가하면 해당 범위를 기반으로 답변합니다</span>
@@ -173,25 +112,13 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
   }
 
   return (
-    <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+    <div className="flex-1 relative min-h-0">
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        style={{
-          height: "100%",
-          overflowY: "auto",
-          padding: "20px 24px",
-        }}
+        className="h-full overflow-y-auto px-6 py-5"
       >
-        <div
-          style={{
-            maxWidth: 760,
-            margin: "0 auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 0,
-          }}
-        >
+        <div className="max-w-[760px] mx-auto flex flex-col gap-0">
           {messages.map((msg, idx) => (
             <ChatMessage
               key={msg.id}
@@ -242,24 +169,12 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             userScrolledRef.current = false;
             scrollToBottom();
           }}
-          style={{
-            position: "absolute",
-            bottom: 16,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 4,
-            padding: "5px 14px",
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            fontSize: 12,
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-            zIndex: 10,
-          }}
+          className={cn(
+            "absolute bottom-4 left-1/2 -translate-x-1/2",
+            "bg-card border border-border rounded-[4px] px-[14px] py-[5px]",
+            "flex items-center gap-[5px] text-[12px] text-[var(--text-muted)]",
+            "cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.4)] z-10",
+          )}
         >
           {I.chevDown}
           <span>아래로</span>

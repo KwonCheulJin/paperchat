@@ -859,6 +859,130 @@ mod commands {
         DOWNLOAD_CANCELLED.store(true, Ordering::SeqCst);
         Ok(())
     }
+
+    #[tauri::command]
+    pub fn check_tesseract() -> bool {
+        super::find_tesseract().is_some()
+    }
+
+    #[tauri::command]
+    pub fn install_tesseract(app: tauri::AppHandle) -> Result<(), String> {
+        // 이미 설치된 경우 tessdata만 확인 후 즉시 성공 반환
+        if super::find_tesseract().is_some() {
+            if let Err(e) = super::install_tessdata(&app) {
+                eprintln!("[ERROR] tessdata 설치 실패: {}", e);
+            }
+            use tauri::Emitter;
+            let _ = app.emit("tesseract-install-progress", serde_json::json!({
+                "step": "done", "message": "OCR 엔진 사용 가능"
+            }));
+            return Ok(());
+        }
+
+        std::thread::spawn(move || {
+            super::run_tesseract_install(app);
+        });
+
+        Ok(())
+    }
+}
+
+// ─── Tesseract 설치 헬퍼 ────────────────────────────────────────────────────
+
+fn install_tessdata(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+
+    let src = app.path().resource_dir()
+        .map_err(|e| e.to_string())?
+        .join("tessdata")
+        .join("kor.traineddata");
+
+    if !src.exists() {
+        return Err("번들 tessdata 파일을 찾을 수 없습니다.".into());
+    }
+
+    // APPDATA\paperchat\tessdata — 관리자 권한 불필요
+    let appdata = std::env::var("APPDATA")
+        .map_err(|_| "APPDATA 환경변수 없음".to_string())?;
+    let dst_dir = std::path::PathBuf::from(appdata)
+        .join("paperchat")
+        .join("tessdata");
+
+    std::fs::create_dir_all(&dst_dir)
+        .map_err(|e| format!("tessdata 폴더 생성 실패: {}", e))?;
+
+    let dst = dst_dir.join("kor.traineddata");
+    if !dst.exists() {
+        std::fs::copy(&src, &dst)
+            .map_err(|e| format!("tessdata 복사 실패: {}", e))?;
+    }
+
+    // 표준 Tesseract tessdata 폴더에도 복사 시도 (권한 있으면 성공)
+    let standard = std::path::PathBuf::from(r"C:\Program Files\Tesseract-OCR\tessdata")
+        .join("kor.traineddata");
+    if !standard.exists() {
+        let _ = std::fs::copy(&src, &standard);
+    }
+
+    Ok(())
+}
+
+fn run_tesseract_install(app: tauri::AppHandle) {
+    use tauri::Emitter;
+
+    let emit = |step: &str, message: &str| {
+        let _ = app.emit("tesseract-install-progress", serde_json::json!({
+            "step": step, "message": message
+        }));
+    };
+
+    emit("installing", "Tesseract OCR 설치 중... (약 1-3분 소요)");
+    log_info!("Tesseract 설치 시작");
+
+    let output = hidden_cmd("winget")
+        .args([
+            "install", "--id", "UB-Mannheim.TesseractOCR",
+            "-e", "--silent",
+            "--accept-package-agreements",
+            "--accept-source-agreements",
+        ])
+        .output();
+
+    match output {
+        Err(e) => {
+            let msg = format!("winget 실행 실패: {}", e);
+            log_error!("{}", msg);
+            emit("error", &msg);
+            return;
+        }
+        Ok(ref out) if !out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let combined = format!("{}{}", stdout, stderr);
+            // 이미 설치된 경우는 성공으로 처리
+            if !combined.to_lowercase().contains("already installed") {
+                let msg = format!("Tesseract 설치 실패: {}", stderr.trim());
+                log_error!("{}", msg);
+                emit("error", &msg);
+                return;
+            }
+            log_info!("Tesseract 이미 설치됨 — tessdata만 복사");
+        }
+        _ => {
+            log_info!("Tesseract winget 설치 완료");
+        }
+    }
+
+    emit("tessdata", "한국어 언어 팩 설치 중...");
+
+    if let Err(e) = install_tessdata(&app) {
+        log_error!("tessdata 복사 실패: {}", e);
+        emit("error", &format!("한국어 팩 설치 실패: {}", e));
+        return;
+    }
+
+    log_info!("Tesseract 설치 완료");
+    emit("done", "OCR 엔진 설치 완료");
 }
 
 // ─── 단위 테스트 ─────────────────────────────────────────────────────────────
@@ -1028,6 +1152,8 @@ pub fn run() {
             commands::read_logs,
             commands::install_model,
             commands::cancel_download,
+            commands::check_tesseract,
+            commands::install_tesseract,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

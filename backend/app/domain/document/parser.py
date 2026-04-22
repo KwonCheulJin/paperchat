@@ -48,19 +48,49 @@ def _find_tesseract_cmd() -> str | None:
     우선순위:
     1. TESSERACT_CMD 환경 변수 (Tauri에서 주입)
     2. Windows 기본 설치 경로
+    3. PATH 탐색 (shutil.which)
     """
-    import os, sys
+    import os, sys, shutil
     env_path = os.environ.get("TESSERACT_CMD")
     if env_path and os.path.exists(env_path):
         return env_path
-    if sys.platform != "win32":
-        return None
+    if sys.platform == "win32":
+        candidates = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+    which = shutil.which("tesseract")
+    if which:
+        return which
+    return None
+
+
+def _find_tessdata_dir() -> str | None:
+    """tessdata 디렉토리 경로 탐색.
+
+    우선순위:
+    1. TESSDATA_PREFIX 환경 변수
+    2. APPDATA\\paperchat\\tessdata (Tauri가 복사한 위치, 관리자 권한 불필요)
+    3. 표준 Tesseract 설치 경로의 tessdata
+    """
+    import os
+    env_dir = os.environ.get("TESSDATA_PREFIX")
+    if env_dir and os.path.isdir(env_dir):
+        return env_dir
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        path = os.path.join(appdata, "paperchat", "tessdata")
+        if os.path.exists(os.path.join(path, "kor.traineddata")):
+            return path
     candidates = [
-        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files\Tesseract-OCR\tessdata",
+        r"C:\Program Files (x86)\Tesseract-OCR\tessdata",
     ]
     for path in candidates:
-        if os.path.exists(path):
+        if os.path.isdir(path):
             return path
     return None
 
@@ -99,10 +129,17 @@ def _extract_text_ocr(content: bytes) -> list[str]:
         img_enh = ImageEnhance.Contrast(img_gray).enhance(2.0)
         img_sharp = img_enh.filter(ImageFilter.SHARPEN)
 
+        tessdata_dir = _find_tessdata_dir()
+        config = "--psm 3 --oem 1"
+        if tessdata_dir:
+            # Windows 경로에 공백이 있을 수 있으므로 따옴표로 감쌈
+            safe_dir = tessdata_dir.replace("\\", "/")
+            config = f'--tessdata-dir "{safe_dir}" {config}'
+
         text = pytesseract.image_to_string(
             img_sharp,
             lang="kor+eng",
-            config="--psm 3 --oem 1",
+            config=config,
         )
         if text.strip():
             pages.append(text)

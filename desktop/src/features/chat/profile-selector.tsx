@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useChatStore } from "../../store/chat";
 import { I } from "../../shared/ui/icons";
 import { PROFILES } from "../../shared/profiles";
+import { cn } from "@/lib/utils";
 
 export default function ProfileSelector() {
   const { profile, setProfile } = useChatStore();
@@ -10,7 +11,6 @@ export default function ProfileSelector() {
 
   const current = PROFILES.find((p) => p.value === profile) ?? PROFILES[0];
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -21,36 +21,13 @@ export default function ProfileSelector() {
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`프로필 선택: ${current.label}`}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          background: "var(--surface-2)",
-          border: "1px solid var(--input)",
-          borderRadius: 6,
-          padding: "4px 8px",
-          fontSize: 12,
-          color: "var(--text-secondary)",
-          cursor: "pointer",
-          transition: "color 0.15s, border-color 0.15s, background 0.15s",
-          whiteSpace: "nowrap",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = "var(--foreground)";
-          e.currentTarget.style.borderColor = "var(--primary)";
-          e.currentTarget.style.background = "color-mix(in oklch, var(--primary) 5%, var(--surface-2))";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = "var(--text-secondary)";
-          e.currentTarget.style.borderColor = "var(--input)";
-          e.currentTarget.style.background = "var(--surface-2)";
-        }}
+        className="flex items-center gap-[5px] bg-[var(--surface-2)] border border-input rounded-[6px] px-2 py-1 text-[12px] text-[var(--text-secondary)] cursor-pointer whitespace-nowrap transition-colors duration-150 hover:text-foreground hover:border-primary hover:bg-primary/5"
       >
         <span>{current.label}</span>
         {I.chevDown}
@@ -58,19 +35,8 @@ export default function ProfileSelector() {
 
       {open && (
         <div
-          style={{
-            position: "absolute",
-            bottom: "calc(100% + 6px)",
-            right: 0,
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            padding: "4px",
-            minWidth: 160,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-            zIndex: 200,
-            animation: "fi 0.15s ease",
-          }}
+          className="absolute bottom-[calc(100%+6px)] right-0 bg-card border border-border rounded-lg p-1 min-w-[160px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] z-[200]"
+          style={{ animation: "fi 0.15s ease" }}
         >
           {PROFILES.map((p) => (
             <button
@@ -79,34 +45,15 @@ export default function ProfileSelector() {
                 setProfile(p.value);
                 setOpen(false);
               }}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                background: p.value === profile ? "var(--surface-2)" : "transparent",
-                border: "none",
-                borderRadius: 6,
-                padding: "7px 10px",
-                fontSize: 12,
-                color: p.value === profile ? "var(--foreground)" : "var(--text-muted)",
-                cursor: "pointer",
-                transition: "background 0.1s, color 0.1s",
-              }}
-              onMouseEnter={(e) => {
-                if (p.value !== profile) {
-                  e.currentTarget.style.background = "var(--surface-2)";
-                  e.currentTarget.style.color = "var(--text-secondary)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (p.value !== profile) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "var(--text-muted)";
-                }
-              }}
+              className={cn(
+                "block w-full text-left border-none rounded-[6px] px-[10px] py-[7px] text-[12px] cursor-pointer transition-colors duration-100 font-[inherit]",
+                p.value === profile
+                  ? "bg-[var(--surface-2)] text-foreground"
+                  : "bg-transparent text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text-secondary)]",
+              )}
             >
-              <span style={{ display: "block" }}>{p.label}</span>
-              <span style={{ display: "block", fontSize: 10, color: "var(--text-dim)", marginTop: 1 }}>{p.desc}</span>
+              <span className="block">{p.label}</span>
+              <span className="block text-[10px] text-[var(--text-dim)] mt-[1px]">{p.desc}</span>
             </button>
           ))}
         </div>

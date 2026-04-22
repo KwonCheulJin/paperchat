@@ -259,7 +259,11 @@ export default function DocumentPanel({ onClose }: Props) {
                   width: "100%",
                   background: "var(--primary)",
                   borderRadius: 2,
-                  transform: `scaleX(${folderProgress.done / folderProgress.total})`,
+                  transform: `scaleX(${
+                  folderProgress.chunkTotal > 0
+                    ? (folderProgress.done + folderProgress.chunkDone / folderProgress.chunkTotal) / folderProgress.total
+                    : folderProgress.done / folderProgress.total
+                })`,
                   transformOrigin: "left",
                   transition: "transform 0.3s ease",
                 }}

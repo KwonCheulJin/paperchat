@@ -1,70 +1,5 @@
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
-const overlayStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.6)",
-  zIndex: 100,
-  animation: "fadeIn 0.15s ease",
-};
-
-const contentStyle: React.CSSProperties = {
-  position: "fixed",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  zIndex: 101,
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  padding: "24px",
-  width: 360,
-  maxWidth: "calc(100vw - 32px)",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-  animation: "slideUp 0.15s ease",
-};
-
-const titleStyle: React.CSSProperties = {
-  fontSize: 15,
-  fontWeight: 600,
-  color: "var(--foreground)",
-  marginBottom: 8,
-};
-
-const descStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: "var(--text-muted)",
-  lineHeight: 1.6,
-  marginBottom: 20,
-};
-
-const footerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: 8,
-};
-
-const cancelBtnStyle: React.CSSProperties = {
-  padding: "7px 16px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "transparent",
-  color: "var(--text-secondary)",
-  fontSize: 13,
-  cursor: "pointer",
-};
-
-const actionBtnStyle: React.CSSProperties = {
-  padding: "7px 16px",
-  borderRadius: 8,
-  border: "none",
-  background: "var(--destructive)",
-  color: "var(--destructive-foreground)",
-  fontSize: 13,
-  fontWeight: 500,
-  cursor: "pointer",
-};
-
 interface AlertDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -87,31 +22,26 @@ export function AlertDialog({
   return (
     <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialogPrimitive.Portal>
-        <AlertDialogPrimitive.Overlay style={overlayStyle} />
-        <AlertDialogPrimitive.Content style={contentStyle}>
-          <AlertDialogPrimitive.Title style={titleStyle}>
+        <AlertDialogPrimitive.Overlay
+          className="fixed inset-0 bg-black/60 z-[100]"
+          style={{ animation: "fadeIn 0.15s ease" }}
+        />
+        <AlertDialogPrimitive.Content
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] bg-card border border-border rounded-[12px] p-6 w-[360px] max-w-[calc(100vw-32px)] shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
+          style={{ animation: "slideUp 0.15s ease" }}
+        >
+          <AlertDialogPrimitive.Title className="text-[15px] font-semibold text-foreground mb-2">
             {title}
           </AlertDialogPrimitive.Title>
-          <AlertDialogPrimitive.Description style={descStyle}>
+          <AlertDialogPrimitive.Description className="text-[13px] text-[var(--text-muted)] leading-relaxed mb-5">
             {description}
           </AlertDialogPrimitive.Description>
-          <div style={footerStyle}>
-            <AlertDialogPrimitive.Cancel
-              style={cancelBtnStyle}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--input)")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-            >
+          <div className="flex justify-end gap-2">
+            <AlertDialogPrimitive.Cancel className="px-4 py-[7px] rounded-lg border border-border bg-transparent text-[var(--text-secondary)] text-[13px] cursor-pointer hover:border-input transition-colors">
               {cancelLabel}
             </AlertDialogPrimitive.Cancel>
             <AlertDialogPrimitive.Action
-              style={actionBtnStyle}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background =
-                  "color-mix(in oklch, var(--destructive) 85%, black)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "var(--destructive)")
-              }
+              className="px-4 py-[7px] rounded-lg bg-destructive text-destructive-foreground text-[13px] font-medium cursor-pointer hover:opacity-90 transition-opacity"
               onClick={onAction}
             >
               {actionLabel}

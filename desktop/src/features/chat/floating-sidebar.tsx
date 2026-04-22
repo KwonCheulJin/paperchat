@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface FloatingSidebarProps {
   side: "left" | "right";
@@ -19,17 +20,10 @@ export default function FloatingSidebar({
   if (pinned) {
     return (
       <div
-        style={{
-          width: 240,
-          flexShrink: 0,
-          background: "var(--sidebar)",
-          borderRight: side === "left" ? "1px solid var(--border)" : undefined,
-          borderLeft: side === "right" ? "1px solid var(--border)" : undefined,
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          overflow: "hidden",
-        }}
+        className={cn(
+          "w-[240px] shrink-0 bg-sidebar h-full overflow-hidden flex flex-col",
+          side === "left" ? "border-r border-border" : "border-l border-border",
+        )}
       >
         {children}
       </div>
@@ -38,54 +32,31 @@ export default function FloatingSidebar({
 
   return (
     <div
-      style={{
-        position: "relative",
-        width: triggerWidth,
-        flexShrink: 0,
-        zIndex: 50,
-      }}
+      className="relative shrink-0 z-50"
+      style={{ width: triggerWidth }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Floating panel */}
       <div
-        style={{
-          position: "absolute",
-          [side]: 0,
-          top: 0,
-          bottom: 0,
-          width: 240,
-          transform: open
-            ? "translateX(0)"
+        className={cn(
+          "absolute top-0 bottom-0 w-[240px] bg-sidebar flex flex-col overflow-hidden",
+          "transition-[transform,opacity,visibility] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          side === "left" ? "left-0 border-r border-border" : "right-0 border-l border-border",
+          open
+            ? "translate-x-0 opacity-100 visible"
             : side === "left"
-            ? "translateX(-100%)"
-            : "translateX(100%)",
-          opacity: open ? 1 : 0,
-          visibility: open ? "visible" : "hidden",
-          transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, visibility 0.2s",
-          background: "var(--sidebar)",
-          borderRight: side === "left" ? "1px solid var(--border)" : undefined,
-          borderLeft: side === "right" ? "1px solid var(--border)" : undefined,
+            ? "-translate-x-full opacity-0 invisible"
+            : "translate-x-full opacity-0 invisible",
+        )}
+        style={{
           boxShadow: open
             ? side === "left"
               ? "4px 0 20px rgba(0,0,0,0.5)"
               : "-4px 0 20px rgba(0,0,0,0.5)"
             : undefined,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
         }}
       >
-        <div
-          style={{
-            width: 240,
-            flexShrink: 0,
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            overflow: "hidden",
-          }}
-        >
+        <div className="w-[240px] shrink-0 flex flex-col h-full overflow-hidden">
           {children}
         </div>
       </div>

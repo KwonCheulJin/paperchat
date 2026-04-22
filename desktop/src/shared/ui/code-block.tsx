@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { Tb } from "./toolbar-button";
 import { I } from "./icons";
+import { cn } from "@/lib/utils";
 
 const SC = {
   kw: "#c678dd",
   str: "#98c379",
-  cmt: "#5c6370",
+  cmt: "#8a8a9e",
   fn: "#61afef",
   num: "#d19a66",
   tp: "#e5c07b",
@@ -27,7 +28,6 @@ export function hlCode(code: string): React.ReactNode[] {
     let rem = line;
     let tk = 0;
 
-    // Continue block comment from previous line
     if (inBlockComment) {
       const closeIdx = rem.indexOf("*/");
       if (closeIdx === -1) {
@@ -41,13 +41,11 @@ export function hlCode(code: string): React.ReactNode[] {
     }
 
     while (rem.length > 0) {
-      // Line comment
       if (rem.startsWith("//")) {
         tokens.push(<span key={tk++} style={{ color: SC.cmt, fontStyle: "italic" }}>{rem}</span>);
         rem = "";
         continue;
       }
-      // Block comment start
       if (rem.startsWith("/*")) {
         const closeIdx = rem.indexOf("*/", 2);
         if (closeIdx === -1) {
@@ -60,21 +58,18 @@ export function hlCode(code: string): React.ReactNode[] {
         }
         continue;
       }
-      // String literal
       const sm = rem.match(/^(['"`])(?:(?!\1).)*\1/);
       if (sm) {
         tokens.push(<span key={tk++} style={{ color: SC.str }}>{sm[0]}</span>);
         rem = rem.slice(sm[0].length);
         continue;
       }
-      // Number literal
       const nm = rem.match(/^\b\d+(\.\d+)?\b/);
       if (nm) {
         tokens.push(<span key={tk++} style={{ color: SC.num }}>{nm[0]}</span>);
         rem = rem.slice(nm[0].length);
         continue;
       }
-      // Word (keyword / type / function / identifier)
       const wm = rem.match(/^[a-zA-Z_$][\w$]*/);
       if (wm) {
         const w = wm[0];
@@ -86,7 +81,6 @@ export function hlCode(code: string): React.ReactNode[] {
         rem = rem.slice(w.length);
         continue;
       }
-      // Operator / punctuation
       const om = rem.match(/^[=<>!&|+\-*/%.?:;,{}()[\]@#~^]/);
       if (om) {
         tokens.push(<span key={tk++} style={{ color: SC.op }}>{om[0]}</span>);
@@ -98,21 +92,11 @@ export function hlCode(code: string): React.ReactNode[] {
     }
 
     return (
-      <div key={li} style={{ display: "flex", minHeight: "1.5em" }}>
-        <span
-          style={{
-            color: "var(--text-dim)",
-            userSelect: "none",
-            width: 36,
-            textAlign: "right",
-            paddingRight: 14,
-            flexShrink: 0,
-            fontSize: "0.85em",
-          }}
-        >
+      <div key={li} className="flex min-h-[1.5em]">
+        <span className="text-[var(--text-dim)] select-none w-9 text-right pr-[14px] shrink-0 text-[0.85em]">
           {li + 1}
         </span>
-        <span style={{ flex: 1 }}>{tokens}</span>
+        <span className="flex-1">{tokens}</span>
       </div>
     );
   });
@@ -138,37 +122,17 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
   };
 
   return (
-    <div
-      style={{
-        background: "var(--card)",
-        borderRadius: 10,
-        margin: "10px 0",
-        overflow: "hidden",
-        border: "1px solid var(--border)",
-      }}
-    >
+    <div className="bg-card rounded-[10px] my-[10px] overflow-hidden border border-border">
       <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "5px 10px",
-          background: "var(--surface-2)",
-          borderBottom: collapsed ? "none" : "1px solid var(--border)",
-        }}
+        className={cn(
+          "flex justify-between items-center px-[10px] py-[5px] bg-[var(--surface-2)]",
+          !collapsed && "border-b border-border",
+        )}
       >
-        <span
-          style={{
-            color: "var(--text-muted)",
-            fontSize: 11,
-            fontWeight: 600,
-            fontFamily: '"ui-monospace", "Cascadia Code", "Consolas", monospace',
-            textTransform: "uppercase",
-          }}
-        >
+        <span className="text-[11px] font-semibold text-[var(--text-muted)] font-mono uppercase">
           {language || "code"}
         </span>
-        <div style={{ display: "flex", gap: 1 }}>
+        <div className="flex gap-[1px]">
           {lineCount > 15 && (
             <Tb
               icon={collapsed ? I.expand : I.collapse}
@@ -186,17 +150,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
         </div>
       </div>
       {!collapsed && (
-        <pre
-          style={{
-            margin: 0,
-            padding: "10px 6px",
-            overflow: "auto",
-            fontSize: 13,
-            lineHeight: 1.5,
-            fontFamily: '"ui-monospace", "Cascadia Code", "Consolas", monospace',
-            maxHeight: 380,
-          }}
-        >
+        <pre className="m-0 px-[6px] py-[10px] overflow-auto text-[13px] leading-[1.5] font-mono max-h-[380px]">
           <code>{highlighted}</code>
         </pre>
       )}

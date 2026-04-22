@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ToolbarButtonProps {
   icon: React.ReactNode;
@@ -10,33 +10,25 @@ interface ToolbarButtonProps {
 }
 
 export function ToolbarButton({ icon, tip, onClick, act, activeColor, disabled }: ToolbarButtonProps) {
-  const [hovered, setHovered] = useState(false);
   return (
     <button
       onClick={onClick}
       title={tip}
       aria-label={tip || undefined}
       disabled={disabled}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: hovered && !disabled ? "color-mix(in oklch, white 6%, transparent)" : "transparent",
-        border: "none",
-        borderRadius: 5,
-        padding: "3px 5px",
-        cursor: disabled ? "not-allowed" : "pointer",
-        color: disabled ? "var(--input)" : act ? (activeColor ?? "var(--primary)") : hovered ? "var(--text-secondary)" : "var(--text-dim)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "color 0.15s, background 0.15s",
-        flexShrink: 0,
-      }}
+      className={cn(
+        "flex items-center justify-center border-none rounded-[5px] px-[5px] py-[3px]",
+        "bg-transparent shrink-0 transition-colors duration-150",
+        disabled
+          ? "cursor-not-allowed text-input"
+          : "cursor-pointer hover:bg-white/[.06]",
+        !act && !disabled && "text-[var(--text-dim)] hover:text-[var(--text-secondary)]",
+      )}
+      style={act && !disabled ? { color: activeColor ?? "var(--primary)" } : undefined}
     >
       {icon}
     </button>
   );
 }
 
-// 하위 호환 alias — 점진적 마이그레이션 중에 사용
 export { ToolbarButton as Tb };

@@ -3,6 +3,7 @@ import { useChatStore } from "../../store/chat";
 import { I } from "../../shared/ui/icons";
 import { AlertDialog } from "../../shared/ui/alert-dialog";
 import { PROFILES } from "../../shared/profiles";
+import { cn } from "@/lib/utils";
 
 export default function SessionSidebar() {
   const { sessions, activeSessionId, createSession, setActiveSession, deleteSession, profile } =
@@ -13,117 +14,50 @@ export default function SessionSidebar() {
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        background: "var(--sidebar)",
-        overflow: "hidden",
-      }}
-    >
+    <div className="flex flex-col h-full bg-sidebar overflow-hidden">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "14px 14px 8px",
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: "var(--text-dim)",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-          }}
-        >
+      <div className="flex items-center justify-between px-[14px] pt-[14px] pb-2 shrink-0">
+        <span className="text-[11px] font-semibold text-[var(--text-dim)] tracking-[0.1em] uppercase">
           paperchat
         </span>
       </div>
 
       {/* 새 채팅 */}
-      <div style={{ padding: "4px 8px 8px", flexShrink: 0 }}>
+      <div className="px-2 pb-2 shrink-0">
         <button
           onClick={createSession}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            width: "100%",
-            background: "transparent",
-            border: "none",
-            borderRadius: 3,
-            padding: "7px 8px",
-            fontSize: 13,
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            textAlign: "left",
-            fontFamily: "inherit",
-            transition: "background 0.12s, color 0.12s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--card)";
-            e.currentTarget.style.color = "var(--text-secondary)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "var(--text-muted)";
-          }}
+          className="flex items-center gap-[9px] w-full bg-transparent border-none rounded-[3px] px-2 py-[7px] text-[13px] text-[var(--text-muted)] cursor-pointer text-left font-[inherit] transition-colors duration-[120ms] hover:bg-card hover:text-[var(--text-secondary)]"
         >
           {I.chat}
           <span>새 채팅</span>
         </button>
       </div>
 
-      <div style={{ height: 1, background: "var(--surface-2)", flexShrink: 0, margin: "0 8px" }} />
+      <div className="h-px bg-[var(--surface-2)] shrink-0 mx-2" />
 
       {/* Search */}
       {sessions.length > 0 && (
-        <div style={{ padding: "6px 8px 2px", flexShrink: 0 }}>
+        <div className="px-2 pt-[6px] pb-[2px] shrink-0">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="대화 검색..."
-            style={{
-              width: "100%",
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: 3,
-              padding: "5px 10px",
-              fontSize: 12,
-              color: "var(--foreground)",
-              boxSizing: "border-box",
-              outline: "none",
-              fontFamily: "inherit",
-              transition: "border-color 0.12s",
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "color-mix(in oklch, var(--primary) 30%, var(--border))")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+            className="w-full bg-card border border-border rounded-[3px] px-[10px] py-[5px] text-[12px] text-foreground outline-none font-[inherit] transition-colors duration-[120ms] focus:border-primary/40"
           />
         </div>
       )}
 
-      {/* Recents */}
-      <div style={{ padding: "8px 14px 4px", flexShrink: 0 }}>
-        <span style={{
-          fontSize: 10,
-          fontWeight: 600,
-          color: "var(--text-dim)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-        }}>
+      {/* Recents label */}
+      <div className="px-[14px] pt-2 pb-1 shrink-0">
+        <span className="text-[10px] font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em]">
           최근
         </span>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "2px 8px" }} role="list">
+      <div className="flex-1 overflow-y-auto px-2 py-[2px]" role="list">
         {sessions.length === 0 ? (
-          <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "16px 8px" }}>
+          <p className="text-[11px] text-[var(--text-dim)] text-center px-2 py-4">
             새 채팅을 눌러 시작하세요
           </p>
         ) : null}
@@ -132,7 +66,7 @@ export default function SessionSidebar() {
           const filtered = q ? sessions.filter((s) => s.title.toLowerCase().includes(q)) : sessions;
           if (sessions.length > 0 && q && filtered.length === 0) {
             return (
-              <p style={{ fontSize: 11, color: "var(--text-dim)", textAlign: "center", padding: "16px 8px" }}>
+              <p className="text-[11px] text-[var(--text-dim)] text-center px-2 py-4">
                 일치하는 대화가 없습니다
               </p>
             );
@@ -144,17 +78,14 @@ export default function SessionSidebar() {
               <div
                 key={session.id}
                 role="listitem"
-                style={{
-                  position: "relative",
-                  borderRadius: 3,
-                  marginBottom: 1,
-                  background: isActive
-                    ? "color-mix(in oklch, var(--primary) 6%, var(--card))"
+                className={cn(
+                  "relative rounded-[3px] mb-[1px] transition-colors duration-100",
+                  isActive
+                    ? "bg-[color-mix(in_oklch,var(--primary)_6%,var(--card))]"
                     : isHovered
-                    ? "var(--card)"
-                    : "transparent",
-                  transition: "background 0.1s",
-                }}
+                    ? "bg-card"
+                    : "bg-transparent",
+                )}
                 onMouseEnter={() => setHoveredId(session.id)}
                 onMouseLeave={() => setHoveredId(null)}
               >
@@ -162,41 +93,19 @@ export default function SessionSidebar() {
                   type="button"
                   onClick={() => setActiveSession(session.id)}
                   aria-current={isActive ? "true" : undefined}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    width: "100%",
-                    background: "transparent",
-                    border: "none",
-                    padding: "7px 8px",
-                    borderRadius: 3,
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontFamily: "inherit",
-                  }}
+                  className="flex items-center w-full bg-transparent border-none px-2 py-[7px] rounded-[3px] cursor-pointer text-left font-[inherit]"
                 >
-                  <span style={{ flex: 1, minWidth: 0, paddingRight: isHovered ? 22 : 0 }}>
+                  <span className="flex-1 min-w-0" style={{ paddingRight: isHovered ? 22 : 0 }}>
                     <span
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        color: isActive ? "var(--foreground)" : "var(--text-muted)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        transition: "color 0.1s",
-                      }}
+                      className={cn(
+                        "block text-[13px] overflow-hidden text-ellipsis whitespace-nowrap transition-colors duration-100",
+                        isActive ? "text-foreground" : "text-[var(--text-muted)]",
+                      )}
                     >
                       {session.title}
                     </span>
                     {isActive && (
-                      <span style={{
-                        display: "block",
-                        fontSize: 10,
-                        color: "var(--text-dim)",
-                        marginTop: 1,
-                        letterSpacing: "0.01em",
-                      }}>
+                      <span className="block text-[10px] text-[var(--text-dim)] mt-[1px] tracking-[0.01em]">
                         {activeProfileLabel}
                       </span>
                     )}
@@ -208,26 +117,10 @@ export default function SessionSidebar() {
                     e.stopPropagation();
                     setDeleteTarget({ id: session.id, title: session.title });
                   }}
-                  style={{
-                    position: "absolute",
-                    right: 6,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "transparent",
-                    border: "none",
-                    padding: "2px",
-                    cursor: "pointer",
-                    color: "var(--text-dim)",
-                    display: "flex",
-                    alignItems: "center",
-                    borderRadius: 2,
-                    opacity: isHovered ? 1 : 0,
-                    pointerEvents: isHovered ? "auto" : "none",
-                    transition: "color 0.1s, opacity 0.1s",
-                    fontFamily: "inherit",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--destructive)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
+                  className={cn(
+                    "absolute right-[6px] top-1/2 -translate-y-1/2 bg-transparent border-none p-[2px] cursor-pointer text-[var(--text-dim)] flex items-center rounded-[2px] transition-[color,opacity] duration-100 hover:text-destructive font-[inherit]",
+                    isHovered ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+                  )}
                   title="삭제"
                   aria-label="세션 삭제"
                 >

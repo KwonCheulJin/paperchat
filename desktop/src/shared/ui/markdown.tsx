@@ -1,6 +1,5 @@
 import { CodeBlock } from "./code-block";
 
-/** 인라인 포맷 파싱: **bold**, `code` */
 export function parseInline(t: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   let rem = t;
@@ -30,7 +29,7 @@ export function parseInline(t: string): React.ReactNode[] {
 
     if (fm.t === "b") {
       parts.push(
-        <strong key={k++} style={{ color: "var(--foreground)", fontWeight: 600 }}>
+        <strong key={k++} className="text-foreground font-semibold">
           {fm.m[1]}
         </strong>
       );
@@ -38,14 +37,7 @@ export function parseInline(t: string): React.ReactNode[] {
       parts.push(
         <code
           key={k++}
-          style={{
-            background: "color-mix(in oklch, var(--text-muted) 15%, transparent)",
-            color: "var(--text-secondary)",
-            padding: "2px 6px",
-            borderRadius: 4,
-            fontSize: "0.88em",
-            fontFamily: "monospace",
-          }}
+          className="bg-[color-mix(in_oklch,var(--text-muted)_15%,transparent)] text-[var(--text-secondary)] px-[6px] py-[2px] rounded-[4px] text-[0.88em] font-mono"
         >
           {fm.m[1]}
         </code>
@@ -66,22 +58,14 @@ function MdTable({ lines }: { lines: string[] }) {
   );
   const [header, , ...body] = rows;
   return (
-    <div style={{ overflowX: "auto", margin: "10px 0" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+    <div className="overflow-x-auto my-[10px]">
+      <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr>
             {header?.map((h, i) => (
               <th
                 key={i}
-                style={{
-                  padding: "8px 12px",
-                  textAlign: "left",
-                  borderBottom: "1px solid var(--border)",
-                  color: "var(--text-secondary)",
-                  fontWeight: 600,
-                  background: "var(--surface-2)",
-                  whiteSpace: "nowrap",
-                }}
+                className="px-[12px] py-2 text-left border-b border-border text-[var(--text-secondary)] font-semibold bg-[var(--surface-2)] whitespace-nowrap"
               >
                 {parseInline(h)}
               </th>
@@ -90,9 +74,9 @@ function MdTable({ lines }: { lines: string[] }) {
         </thead>
         <tbody>
           {body.map((row, ri) => (
-            <tr key={ri} style={{ borderBottom: "1px solid color-mix(in oklch, white 4%, transparent)" }}>
+            <tr key={ri} className="border-b border-white/[.04]">
               {row.map((cell, ci) => (
-                <td key={ci} style={{ padding: "7px 12px", color: "var(--foreground)" }}>
+                <td key={ci} className="px-[12px] py-[7px] text-foreground">
                   {parseInline(cell)}
                 </td>
               ))}
@@ -113,7 +97,6 @@ export function parseMarkdown(text: string): React.ReactNode[] {
   while (i < lines.length) {
     const L = lines[i];
 
-    // Fenced code block
     if (L.startsWith("```")) {
       const lang = L.slice(3).trim();
       const cl: string[] = [];
@@ -127,14 +110,14 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       continue;
     }
 
-    // Headings
     const hm = L.match(/^(#{1,3})\s+(.+)/);
     if (hm) {
       const sz: Record<number, number> = { 1: 18, 2: 16, 3: 14 };
       el.push(
         <div
           key={k++}
-          style={{ fontSize: sz[hm[1].length], fontWeight: 700, color: "var(--foreground)", margin: "14px 0 6px" }}
+          className="font-bold text-foreground mt-[14px] mb-[6px]"
+          style={{ fontSize: sz[hm[1].length] }}
         >
           {parseInline(hm[2])}
         </div>
@@ -143,19 +126,14 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       continue;
     }
 
-    // Horizontal rule
     if (/^---+$/.test(L.trim())) {
       el.push(
-        <hr
-          key={k++}
-          style={{ border: "none", borderTop: "1px solid color-mix(in oklch, white 6%, transparent)", margin: "14px 0" }}
-        />
+        <hr key={k++} className="border-none border-t border-white/[.06] my-[14px]" />
       );
       i++;
       continue;
     }
 
-    // Blockquote
     if (L.startsWith(">")) {
       const ql: string[] = [];
       while (i < lines.length && lines[i].startsWith(">")) {
@@ -165,17 +143,10 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       el.push(
         <div
           key={k++}
-          style={{
-            margin: "10px 0",
-            color: "var(--text-secondary)",
-            background: "color-mix(in oklch, var(--primary) 5%, var(--card))",
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "1px solid color-mix(in oklch, var(--primary) 15%, var(--border))",
-          }}
+          className="my-[10px] text-[var(--text-secondary)] bg-primary/5 px-[14px] py-[10px] rounded-lg border border-primary/15"
         >
           {ql.map((q, qi) => (
-            <div key={qi} style={{ lineHeight: 1.7 }}>
+            <div key={qi} className="leading-[1.7]">
               {parseInline(q)}
             </div>
           ))}
@@ -184,7 +155,6 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       continue;
     }
 
-    // Unordered list
     if (/^[-*]\s/.test(L.trim())) {
       const items: string[] = [];
       while (i < lines.length && /^[-*]\s/.test(lines[i].trim())) {
@@ -192,10 +162,10 @@ export function parseMarkdown(text: string): React.ReactNode[] {
         i++;
       }
       el.push(
-        <ul key={k++} style={{ margin: "8px 0", paddingLeft: 18, listStyle: "none" }}>
+        <ul key={k++} className="my-2 pl-[18px] list-none">
           {items.map((it, ii) => (
-            <li key={ii} style={{ position: "relative", paddingLeft: 14, marginBottom: 3, lineHeight: 1.7 }}>
-              <span style={{ position: "absolute", left: 0, color: "var(--text-muted)" }}>•</span>
+            <li key={ii} className="relative pl-[14px] mb-[3px] leading-[1.7]">
+              <span className="absolute left-0 text-[var(--text-muted)]">•</span>
               {parseInline(it)}
             </li>
           ))}
@@ -204,7 +174,6 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       continue;
     }
 
-    // Ordered list
     if (/^\d+\.\s/.test(L.trim())) {
       const items: string[] = [];
       while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
@@ -212,10 +181,10 @@ export function parseMarkdown(text: string): React.ReactNode[] {
         i++;
       }
       el.push(
-        <ol key={k++} style={{ margin: "8px 0", paddingLeft: 4, listStyle: "none" }}>
+        <ol key={k++} className="my-2 pl-1 list-none">
           {items.map((it, ii) => (
-            <li key={ii} style={{ display: "flex", gap: 10, marginBottom: 3, lineHeight: 1.7 }}>
-              <span style={{ color: "var(--text-muted)", fontWeight: 600, fontSize: 13, minWidth: 18 }}>
+            <li key={ii} className="flex gap-[10px] mb-[3px] leading-[1.7]">
+              <span className="text-[var(--text-muted)] font-semibold text-[13px] min-w-[18px]">
                 {ii + 1}.
               </span>
               <span>{parseInline(it)}</span>
@@ -226,7 +195,6 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       continue;
     }
 
-    // Table
     if (L.includes("|") && L.trim().startsWith("|")) {
       const tl: string[] = [];
       while (i < lines.length && lines[i].includes("|") && lines[i].trim().startsWith("|")) {
@@ -239,15 +207,13 @@ export function parseMarkdown(text: string): React.ReactNode[] {
       }
     }
 
-    // Empty line
     if (L.trim() === "") {
       i++;
       continue;
     }
 
-    // Paragraph
     el.push(
-      <p key={k++} style={{ margin: "5px 0", lineHeight: 1.7 }}>
+      <p key={k++} className="my-[5px] leading-[1.7]">
         {parseInline(L)}
       </p>
     );
@@ -257,5 +223,4 @@ export function parseMarkdown(text: string): React.ReactNode[] {
   return el;
 }
 
-// 하위 호환 alias
 export { parseInline as pI };

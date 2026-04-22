@@ -1,4 +1,7 @@
 // 백엔드 HTTP 클라이언트 모듈
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+
 const BASE = "http://127.0.0.1:8000";
 
 // SSE 이벤트 타입 정의
@@ -31,6 +34,7 @@ export type SseEvent =
   | { type: "done"; cached: boolean; status?: string; doc_id?: string; chunk_count?: number; filename?: string }
   | { type: "progress"; message: string }
   | { type: "error"; message: string }
+  | { type: "tesseract_missing"; message: string }
   | {
       type: "entity_result";
       content: string;
@@ -158,6 +162,48 @@ export async function listDocuments(): Promise<DocumentInfo[]> {
 export async function deleteDocument(docId: string): Promise<void> {
   const res = await fetch(`${BASE}/documents/${docId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`문서 삭제 실패: ${res.status}`);
+}
+
+// Tauri: Tesseract 설치 여부 확인
+export async function checkTesseract(): Promise<boolean> {
+  return invoke<boolean>("check_tesseract");
+}
+
+// Tauri: Tesseract 자동 설치 (winget + tessdata 복사)
+// onProgress: 설치 진행 콜백 (step, message)
+// 설치 완료 또는 오류 시 resolve/reject
+export async function installTesseract(
+  onProgress?: (step: string, message: string) => void,
+): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    let settled = false;
+
+    const unlisten = await listen<{ step: string; message: string }>(
+      "tesseract-install-progress",
+      (event) => {
+        if (settled) return;
+        const { step, message } = event.payload;
+        onProgress?.(step, message);
+        if (step === "done") {
+          settled = true;
+          unlisten();
+          resolve();
+        } else if (step === "error") {
+          settled = true;
+          unlisten();
+          reject(new Error(message));
+        }
+      },
+    );
+
+    invoke("install_tesseract").catch((e: unknown) => {
+      if (!settled) {
+        settled = true;
+        unlisten();
+        reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    });
+  });
 }
 
 // POST /chat/feedback — 메시지 피드백
