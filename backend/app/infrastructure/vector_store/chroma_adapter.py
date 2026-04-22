@@ -9,6 +9,9 @@ multilingual-e5-large 특징:
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from fastembed import TextEmbedding
 from app.core.config import settings
 from app.core.db import get_chroma, get_sqlite
@@ -21,11 +24,25 @@ logger = get_logger(__name__)
 _embed_model: TextEmbedding | None = None
 
 
+def _embed_cache_dir() -> str:
+    """fastembed 모델 캐시 디렉토리.
+
+    기본(tempfile.gettempdir())을 쓰면 Windows TEMP에 다운로드되어
+    OS 정리·재시작·불완전 다운로드 이후 model.onnx가 없어지는 케이스가 발생.
+    LOCALAPPDATA/paperchat/embeddings_cache 로 고정해 persistence 보장.
+    """
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".cache")
+    path = Path(base) / "paperchat" / "embeddings_cache"
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
+
+
 def _get_embed_model() -> TextEmbedding:
     global _embed_model
     if _embed_model is None:
-        logger.info("embed_model_loading", model=settings.embed_model)
-        _embed_model = TextEmbedding(settings.embed_model)
+        cache_dir = _embed_cache_dir()
+        logger.info("embed_model_loading", model=settings.embed_model, cache_dir=cache_dir)
+        _embed_model = TextEmbedding(settings.embed_model, cache_dir=cache_dir)
         logger.info("embed_model_loaded", model=settings.embed_model)
     return _embed_model
 
