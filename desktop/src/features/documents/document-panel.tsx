@@ -31,21 +31,11 @@ export default function DocumentPanel() {
   const [expanded, setExpanded] = useState(true);
   const [folderExpanded, setFolderExpanded] = useState<Record<string, boolean>>({});
   const [deleteTarget, setDeleteTarget] = useState<DocumentInfo | null>(null);
-  const [showFolderHint, setShowFolderHint] = useState(
-    () => localStorage.getItem("seenFolderHint") !== "1"
-  );
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
-
-  useEffect(() => {
-    if (activeFolder && showFolderHint) {
-      localStorage.setItem("seenFolderHint", "1");
-      setShowFolderHint(false);
-    }
-  }, [activeFolder, showFolderHint]);
 
 
   const handleSingleFile = (files: FileList | null) => {
@@ -283,24 +273,43 @@ export default function DocumentPanel() {
 
       {/* Documents folder tree */}
       <div className="flex-1 overflow-y-auto px-2.5 py-2">
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          aria-label={expanded ? "문서 목록 접기" : "문서 목록 펼치기"}
-          className="flex items-center gap-1.5 w-full bg-transparent border-none px-0.5 py-1 cursor-pointer mb-0.5"
-        >
-          <span className="text-[var(--text-dim)] flex">
-            {expanded ? I.chevDown : I.chevRight}
-          </span>
-          <span className="text-xs font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em]">
-            내 문서 ({documents.length})
-          </span>
-        </button>
-        {expanded && documents.length > 0 && showFolderHint && (
-          <p className="text-xs text-[var(--text-dim)] px-0.5 pb-1.5 leading-[1.4]">
-            폴더를 체크하면 해당 폴더 문서에서만 답을 찾아드려요
-          </p>
-        )}
+        <div className="flex items-center mb-0.5">
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label={expanded ? "문서 목록 접기" : "문서 목록 펼치기"}
+            className="flex items-center gap-1.5 flex-1 bg-transparent border-none px-0.5 py-1 cursor-pointer min-w-0"
+          >
+            <span className="text-[var(--text-dim)] flex">
+              {expanded ? I.chevDown : I.chevRight}
+            </span>
+            <span className="text-xs font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em]">
+              내 문서 ({documents.length})
+            </span>
+          </button>
+          {documents.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="폴더 선택 안내"
+                  className="flex items-center bg-transparent border-none p-1 cursor-help text-[var(--text-dim)] hover:text-foreground transition-colors"
+                >
+                  {I.info}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="start" className="max-w-[240px]">
+                <p className="text-xs leading-[1.5]">
+                  폴더 옆의 체크 버튼을 누르면 그 폴더 안의 문서에서만 답을 찾아드려요.
+                  <br />
+                  관심 있는 주제의 폴더만 골라두면 더 빠르고 정확한 답을 받을 수 있어요.
+                  <br />
+                  기타는 포함되지 않습니다.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
 
         {expanded && (
           <>
