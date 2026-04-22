@@ -1,6 +1,11 @@
 ; paperchat 인스톨러 커스터마이징
 ; 이 파일은 installer.nsi 최상단에서 include됨 — MUI 페이지 선언 전
 
+; ── 매 설치 시 언어 선택 dialog 강제 표시 ────────────────────────────────────
+; NSIS 기본 동작은 한 번 선택한 언어를 HKCU 레지스트리에 저장해 재설치 시 생략함.
+; paperchat는 다국어 사용자 환경을 고려해 매번 dialog를 띄운다.
+!define MUI_LANGDLL_ALWAYSSHOW
+
 ; ── Welcome / Finish 페이지 커스텀 텍스트 ────────────────────────────────────
 !define MUI_WELCOMEPAGE_TITLE "$(pc_welcome_title)"
 !define MUI_WELCOMEPAGE_TEXT  "$(pc_welcome_text)"

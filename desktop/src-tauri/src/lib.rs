@@ -900,14 +900,12 @@ mod commands {
 fn install_tessdata(app: &tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
 
-    let src = app.path().resource_dir()
-        .map_err(|e| e.to_string())?
-        .join("tessdata")
-        .join("kor.traineddata");
+    // pytesseract가 `lang="kor+eng"`로 호출하므로 kor + eng 둘 다 필요
+    const LANGS: &[&str] = &["kor", "eng"];
 
-    if !src.exists() {
-        return Err("번들 tessdata 파일을 찾을 수 없습니다.".into());
-    }
+    let bundle_dir = app.path().resource_dir()
+        .map_err(|e| e.to_string())?
+        .join("tessdata");
 
     // APPDATA\paperchat\tessdata — 관리자 권한 불필요
     let appdata = std::env::var("APPDATA")
@@ -919,17 +917,33 @@ fn install_tessdata(app: &tauri::AppHandle) -> Result<(), String> {
     std::fs::create_dir_all(&dst_dir)
         .map_err(|e| format!("tessdata 폴더 생성 실패: {}", e))?;
 
-    let dst = dst_dir.join("kor.traineddata");
-    if !dst.exists() {
-        std::fs::copy(&src, &dst)
-            .map_err(|e| format!("tessdata 복사 실패: {}", e))?;
+    let standard_dir = std::path::PathBuf::from(r"C:\Program Files\Tesseract-OCR\tessdata");
+
+    let mut copied_any = false;
+    for lang in LANGS {
+        let filename = format!("{}.traineddata", lang);
+        let src = bundle_dir.join(&filename);
+        if !src.exists() {
+            continue;
+        }
+        copied_any = true;
+
+        // APPDATA 복사 (항상 시도)
+        let dst = dst_dir.join(&filename);
+        if !dst.exists() {
+            std::fs::copy(&src, &dst)
+                .map_err(|e| format!("{} 복사 실패: {}", filename, e))?;
+        }
+
+        // 표준 Tesseract tessdata 폴더에도 시도 (권한 있으면 성공)
+        let standard = standard_dir.join(&filename);
+        if !standard.exists() {
+            let _ = std::fs::copy(&src, &standard);
+        }
     }
 
-    // 표준 Tesseract tessdata 폴더에도 복사 시도 (권한 있으면 성공)
-    let standard = std::path::PathBuf::from(r"C:\Program Files\Tesseract-OCR\tessdata")
-        .join("kor.traineddata");
-    if !standard.exists() {
-        let _ = std::fs::copy(&src, &standard);
+    if !copied_any {
+        return Err("번들 tessdata 파일을 찾을 수 없습니다.".into());
     }
 
     Ok(())
@@ -1055,6 +1069,13 @@ pub fn run() {
 
                 #[cfg(windows)]
                 job::init();
+
+                // tessdata 복사 보장 — Tesseract 이미 설치된 환경에서도 APPDATA에 kor.traineddata 없으면 OCR 실패.
+                // 실패해도 앱 기동은 계속 (OCR 요청 시 프론트엔드가 재시도).
+                match install_tessdata(&app_handle) {
+                    Ok(()) => log_info!("tessdata 준비 완료"),
+                    Err(e) => log_info!("tessdata 복사 스킵 — {}", e),
+                }
 
                 let proc_mgr_state = app_handle.state::<ProcessManagerState>();
                 let model_store = app_handle.state::<ModelStateStore>();
