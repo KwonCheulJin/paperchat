@@ -66,6 +66,33 @@ cd backend && PYTHONPATH=. pytest tests/ -q
 cd backend && PYTHONPATH=. .venv/Scripts/lint-imports
 ```
 
+## Pre-push 빌드 검증
+
+`desktop/src-tauri/` 또는 `desktop/package.json` 파일이 변경된 커밋을 push하면
+Husky pre-push 훅이 자동으로 `pnpm tauri build`를 실행해 CI 실패를 사전에 방지한다.
+
+**최초 설정 (클론 후 1회)**:
+```bash
+npm install   # 루트에서 실행 — Husky 훅 등록
+```
+
+**검증 수동 실행**:
+```bash
+bash scripts/validate-tauri-build.sh
+```
+
+**빌드 건너뛰기** (긴급 push 시):
+```bash
+SKIP_TAURI_BUILD=1 git push
+# 또는
+git push --no-verify
+```
+
+**tauri.conf.json 주의사항**:
+- `bundle.resources` 는 `string[]` 또는 `Record<string, string>` 만 허용
+- `[{"src":"...","dest":"..."}]` 배열-of-objects 형식은 Tauri 2 스키마 오류
+- 올바른 예: `{"binaries/llama-server.exe": "."}`
+
 ## Backend Architecture
 
 **Hexagonal Architecture (Ports & Adapters)**

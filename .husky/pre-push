@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# push 전에 tauri 관련 파일이 변경된 경우 빌드 검증
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# push 대상 커밋 범위에서 tauri 관련 파일 변경 여부 확인
+TAURI_CHANGED=""
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue  # 브랜치 삭제 push는 건너뜀
+  fi
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    RANGE="$local_sha"
+  else
+    RANGE="$remote_sha..$local_sha"
+  fi
+  TAURI_CHANGED=$(git diff --name-only "$RANGE" 2>/dev/null \
+    | grep -E "^desktop/src-tauri/|^desktop/package\.json|^desktop/pnpm-lock\.yaml" \
+    | head -1 || true)
+  [ -n "$TAURI_CHANGED" ] && break
+done
+
+if [ -z "$TAURI_CHANGED" ]; then
+  exit 0  # tauri 무관 변경 — 검증 불필요
+fi
+
+echo "[pre-push] tauri 파일 변경 감지 ($TAURI_CHANGED)"
+bash "$REPO_ROOT/scripts/validate-tauri-build.sh"
