@@ -40,9 +40,9 @@
       "icons/icon.ico"
     ],
     "externalBin": [],
-    "resources": [
-      { "src": "binaries/llama-server.exe", "dest": "." },
-      { "src": "binaries/paperchat-server.exe", "dest": "." }
-    ]
+    "resources": {
+      "binaries/llama-server.exe": ".",
+      "binaries/paperchat-server.exe": "."
+    }
   }
 }
