@@ -226,7 +226,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     } catch (e) {
       if (!sseError) {
         removeFailedMessages();
-        toast.error("연결 오류가 발생했습니다. 다시 시도해 주세요.");
+        const detail = e instanceof Error ? e.message : String(e);
+        toast.error(`연결 오류: ${detail}`);
       }
       throw e;
     } finally {

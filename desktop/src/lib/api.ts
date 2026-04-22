@@ -106,16 +106,36 @@ export async function* chatStream(
       timeoutController.abort();
     });
 
-    let res: Response;
+    // WebView2에서 POST가 간헐적으로 TypeError("Failed to fetch")로 터지는 케이스 존재 → 2회 재시도
+    const MAX_ATTEMPTS = 3;
+    let res: Response | undefined;
+    let lastError: unknown;
     try {
-      res = await fetch(`${BASE}/chat/stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, profile, session_id: sessionId, folder, continuation }),
-        signal: timeoutController.signal,
-      });
+      for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        try {
+          res = await fetch(`${BASE}/chat/stream`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages, profile, session_id: sessionId, folder, continuation }),
+            signal: timeoutController.signal,
+          });
+          break;
+        } catch (e) {
+          if (e instanceof Error && e.name === "AbortError") throw e;
+          lastError = e;
+          if (i < MAX_ATTEMPTS - 1) {
+            await new Promise((r) => setTimeout(r, 500 + i * 1000));
+          }
+        }
+      }
     } finally {
       clearTimeout(timeoutTimer);
+    }
+
+    if (!res) {
+      const msg = lastError instanceof Error ? lastError.message : String(lastError);
+      yield { type: "error", message: `연결 실패 — ${msg} (재시도 ${MAX_ATTEMPTS}회 실패)` };
+      return;
     }
 
     if (!res.ok) {
