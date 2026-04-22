@@ -83,6 +83,21 @@ cd backend && PYTHONPATH=. .venv/Scripts/lint-imports
 
 > `MAJOR`(1.x.x)는 사용자가 명시적으로 요청할 때만 올린다.
 
+**버전 bump 후 반드시 git tag를 생성하고 push할 것:**
+
+```bash
+git tag -a v<NEW_VERSION> -m "v<NEW_VERSION> — <변경 요약>"
+git push origin v<NEW_VERSION>
+```
+
+예: 버전이 `0.4.1 → 0.4.2`이면:
+```bash
+git tag -a v0.4.2 -m "v0.4.2 — UI 개선"
+git push origin v0.4.2
+```
+
+> 태그는 annotated tag(`-a`)만 사용한다. lightweight tag는 GitHub 릴리즈에서 인식 불량.
+
 ## Pre-push 빌드 검증
 
 `desktop/src-tauri/` 또는 `desktop/package.json` 파일이 변경된 커밋을 push하면
