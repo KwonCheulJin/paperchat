@@ -1,6 +1,37 @@
-; paperchat English custom LangStrings
-; Included after MUI_LANGUAGE "English" via Tauri's customLanguageFiles
+; paperchat English translations
+; Included after MUI_LANGUAGE "English" via Tauri customLanguageFiles.
+; customLanguageFiles overrides Tauri defaults — default LangStrings must be included here too.
 
+; ── Tauri default LangStrings ─────────────────────────────────────────────────
+LangString addOrReinstall ${LANG_ENGLISH} "Add components and reinstall"
+LangString alreadyInstalled ${LANG_ENGLISH} "Already installed"
+LangString alreadyInstalledLong ${LANG_ENGLISH} "${PRODUCTNAME} ${VERSION} is already installed. Select the operation you want to perform and click Next to continue."
+LangString appRunning ${LANG_ENGLISH} "{{product_name}} is running! Please close it and try again."
+LangString appRunningOkKill ${LANG_ENGLISH} "{{product_name}} is running!$\nClick OK to terminate the running program."
+LangString chooseMaintenanceOption ${LANG_ENGLISH} "Select the maintenance option you want to perform."
+LangString choowHowToInstall ${LANG_ENGLISH} "Choose how to install ${PRODUCTNAME}."
+LangString createDesktop ${LANG_ENGLISH} "Create Desktop Shortcut"
+LangString deleteAppData ${LANG_ENGLISH} "Delete application data"
+LangString dontUninstall ${LANG_ENGLISH} "Do not uninstall"
+LangString dontUninstallDowngrade ${LANG_ENGLISH} "Do not uninstall (This installer cannot downgrade without uninstalling first.)"
+LangString failedToKillApp ${LANG_ENGLISH} "Failed to terminate {{product_name}}. Please close it and try again."
+LangString installingWebview2 ${LANG_ENGLISH} "Installing WebView2..."
+LangString newerVersionInstalled ${LANG_ENGLISH} "A newer version of ${PRODUCTNAME} is already installed! It is not recommended to install an older version. If you really want to install this older version, it is recommended to uninstall the current version first. Select the operation you want to perform and click Next to continue."
+LangString older ${LANG_ENGLISH} "older"
+LangString olderOrUnknownVersionInstalled ${LANG_ENGLISH} "Version $R4 of ${PRODUCTNAME} is installed on the system. It is recommended to uninstall the current version before installing. Select the operation you want to perform and click Next to continue."
+LangString silentDowngrades ${LANG_ENGLISH} "Downgrades are disabled in this installer, the silent installer cannot continue. Please use the graphical installer instead.$\n"
+LangString unableToUninstall ${LANG_ENGLISH} "Unable to uninstall!"
+LangString uninstallApp ${LANG_ENGLISH} "Uninstall ${PRODUCTNAME}"
+LangString uninstallBeforeInstalling ${LANG_ENGLISH} "Uninstall before installing"
+LangString unknown ${LANG_ENGLISH} "unknown"
+LangString webview2AbortError ${LANG_ENGLISH} "Failed to install WebView2! The app cannot run without WebView2. Try restarting the installer."
+LangString webview2DownloadError ${LANG_ENGLISH} "Error: Failed to download WebView2. - $0"
+LangString webview2DownloadSuccess ${LANG_ENGLISH} "WebView2 bootstrapper was successfully downloaded."
+LangString webview2Downloading ${LANG_ENGLISH} "Downloading WebView2 bootstrapper..."
+LangString webview2InstallError ${LANG_ENGLISH} "Error: Failed to install WebView2 with exit code $1."
+LangString webview2InstallSuccess ${LANG_ENGLISH} "WebView2 was successfully installed."
+
+; ── paperchat custom text ─────────────────────────────────────────────────────
 LangString pc_welcome_title ${LANG_ENGLISH} "Welcome to paperchat"
 
 LangString pc_welcome_text ${LANG_ENGLISH} \
