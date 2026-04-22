@@ -62,89 +62,112 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
   }, [sendMessage]);
 
   if (messages.length === 0) {
+    const currentProfile = PROFILES.find((p) => p.value === profile) ?? PROFILES[0];
     return (
       <div
         style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
           justifyContent: "center",
-          gap: 24,
-          padding: 24,
+          padding: "24px",
           animation: "fi 0.4s ease",
         }}
       >
-        {/* star icon */}
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--primary)",
-            opacity: 0.6,
-          }}
-        >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2L13.5 10.5L22 12L13.5 13.5L12 22L10.5 13.5L2 12L10.5 10.5Z" />
-          </svg>
-        </div>
-        <p style={{ color: "var(--text-dim)", fontSize: 14 }}>
-          {(PROFILES.find((p) => p.value === profile) ?? PROFILES[0]).subtitle}
-        </p>
-        {/* Suggestion chips */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 480 }}>
-          {(PROFILES.find((p) => p.value === profile) ?? PROFILES[0]).suggestions.map((s) => (
-            <button
-              key={s}
-              onClick={() => sendMessage(s)}
+        <div style={{ maxWidth: 560, width: "100%", margin: "0 auto" }}>
+          {/* Profile context */}
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginBottom: 24 }}>
+            <p
               style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                borderRadius: 20,
-                padding: "7px 14px",
-                fontSize: 12,
-                color: "var(--text-muted)",
-                cursor: "pointer",
-                transition: "color 0.15s, border-color 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--text-secondary)";
-                e.currentTarget.style.borderColor = "var(--input)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "var(--text-muted)";
-                e.currentTarget.style.borderColor = "var(--border)";
+                fontSize: 11,
+                color: "var(--text-dim)",
+                marginBottom: 10,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
               }}
             >
-              {s}
-            </button>
-          ))}
+              {currentProfile.label}
+            </p>
+            <p style={{ fontSize: 16, color: "var(--foreground)", lineHeight: 1.65 }}>
+              {currentProfile.subtitle}
+            </p>
+          </div>
+
+          {/* Suggestion list */}
+          <div style={{ marginBottom: 28 }}>
+            <p
+              style={{
+                fontSize: 11,
+                color: "var(--text-dim)",
+                marginBottom: 10,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              시작 질문
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              {currentProfile.suggestions.map((s, idx) => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    padding: "7px 0",
+                    fontSize: 13,
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    fontFamily: "inherit",
+                    transition: "color 0.12s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+                >
+                  <span style={{
+                    color: "var(--text-dim)",
+                    flexShrink: 0,
+                    fontSize: 10,
+                    fontVariantNumeric: "tabular-nums",
+                    letterSpacing: "0.02em",
+                    minWidth: 16,
+                    marginTop: 3,
+                  }}>
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span>{s}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Document hint */}
+          <button
+            onClick={onRightPanelToggle}
+            style={{
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              fontSize: 12,
+              color: "var(--text-dim)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontFamily: "inherit",
+              transition: "color 0.12s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
+          >
+            {I.folder}
+            <span>문서를 추가하면 해당 범위를 기반으로 답변합니다</span>
+          </button>
         </div>
-        {/* Folder hint */}
-        <button
-          onClick={onRightPanelToggle}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            background: "transparent",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            padding: "6px 12px",
-            fontSize: 12,
-            color: "var(--text-dim)",
-            cursor: "pointer",
-            transition: "color 0.15s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
-        >
-          {I.folder}
-          <span>문서를 업로드하고 폴더를 활성화하면 해당 범위만 검색합니다</span>
-        </button>
       </div>
     );
   }
@@ -166,7 +189,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             margin: "0 auto",
             display: "flex",
             flexDirection: "column",
-            gap: 2,
+            gap: 0,
           }}
         >
           {messages.map((msg, idx) => (
@@ -226,7 +249,7 @@ export default function MessageList({ onRightPanelToggle }: MessageListProps) {
             transform: "translateX(-50%)",
             background: "var(--card)",
             border: "1px solid var(--border)",
-            borderRadius: 20,
+            borderRadius: 4,
             padding: "5px 14px",
             display: "flex",
             alignItems: "center",

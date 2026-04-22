@@ -66,6 +66,23 @@ cd backend && PYTHONPATH=. pytest tests/ -q
 cd backend && PYTHONPATH=. .venv/Scripts/lint-imports
 ```
 
+## 버전 관리 (Push 전 필수)
+
+**Push 시 반드시 버전을 올릴 것.** 아래 세 파일을 동시에 업데이트해야 한다:
+
+- `desktop/package.json` — `"version"` 필드
+- `desktop/src-tauri/Cargo.toml` — `version =` 필드
+- `desktop/src-tauri/tauri.conf.json` — `"version"` 필드
+
+**버전 구분 기준** (Semantic Versioning: `MAJOR.MINOR.PATCH`):
+
+| 변경 유형 | 버전 |
+|-----------|------|
+| 새 기능 추가, 아키텍처 변경, UI 대규모 개편 | **minor** (0.4.x → 0.5.0) |
+| 버그 수정, 소규모 개선, 설정·문서 변경 | **patch** (0.4.1 → 0.4.2) |
+
+> `MAJOR`(1.x.x)는 사용자가 명시적으로 요청할 때만 올린다.
+
 ## Pre-push 빌드 검증
 
 `desktop/src-tauri/` 또는 `desktop/package.json` 파일이 변경된 커밋을 push하면

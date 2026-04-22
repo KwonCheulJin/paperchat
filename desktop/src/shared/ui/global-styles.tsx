@@ -35,6 +35,12 @@ export function GlobalStyles() {
         outline-offset: 2px;
         border-radius: 4px;
       }
+      textarea:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: none;
+        outline-offset: 0;
+      }
       ::-webkit-scrollbar { width: 4px; height: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }

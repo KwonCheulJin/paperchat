@@ -21,7 +21,6 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // 외부 클릭 시 팝업 닫기
   useEffect(() => {
     if (!showUploadMenu) return;
     const handleMouseDown = (e: MouseEvent) => {
@@ -52,7 +51,6 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
     try {
       await sendMessage(trimmed);
     } catch {
-      // 전송 실패 시 입력 내용 복원
       updateText(trimmed);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -125,8 +123,8 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
           maxWidth: 760,
           margin: "0 auto",
           background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 12,
+          border: "1px solid color-mix(in oklch, var(--primary) 10%, var(--border))",
+          borderRadius: 4,
           padding: "10px 10px 8px",
           display: "flex",
           flexDirection: "column",
@@ -152,11 +150,11 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                   left: 0,
                   background: "var(--card)",
                   border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  padding: "4px",
+                  borderRadius: 4,
+                  padding: "3px",
                   zIndex: 50,
                   minWidth: 160,
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
                 }}
               >
                 <button
@@ -168,12 +166,14 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                     width: "100%",
                     background: "transparent",
                     border: "none",
-                    borderRadius: 6,
+                    borderRadius: 2,
                     padding: "7px 10px",
                     fontSize: 13,
                     color: "var(--text-muted)",
                     cursor: "pointer",
                     textAlign: "left",
+                    fontFamily: "inherit",
+                    transition: "background 0.1s, color 0.1s",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--surface-2)";
@@ -196,12 +196,14 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                     width: "100%",
                     background: "transparent",
                     border: "none",
-                    borderRadius: 6,
+                    borderRadius: 2,
                     padding: "7px 10px",
                     fontSize: 13,
                     color: "var(--text-muted)",
                     cursor: "pointer",
                     textAlign: "left",
+                    fontFamily: "inherit",
+                    transition: "background 0.1s, color 0.1s",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--surface-2)";
@@ -219,7 +221,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
             )}
           </div>
 
-          {/* Folder toggle (오른쪽 패널) */}
+          {/* Folder toggle */}
           <Tb icon={I.sidebarR} tip="문서 패널" onClick={onFolderToggle} />
 
           {/* Textarea */}
@@ -242,6 +244,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               flex: 1,
               background: "transparent",
               border: "none",
+              outline: "none",
               resize: "none",
               color: "var(--foreground)",
               fontSize: 14,
@@ -274,7 +277,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                 justifyContent: "center",
                 background: "var(--destructive)",
                 border: "none",
-                borderRadius: 8,
+                borderRadius: 2,
                 cursor: "pointer",
                 color: "var(--destructive-foreground)",
                 transition: "background 0.15s",
@@ -299,7 +302,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
                 justifyContent: "center",
                 background: canSend ? "var(--primary)" : "var(--border)",
                 border: "none",
-                borderRadius: 8,
+                borderRadius: 2,
                 cursor: canSend ? "pointer" : "not-allowed",
                 color: canSend ? "var(--primary-foreground)" : "var(--text-dim)",
                 transition: "background 0.15s",
@@ -316,7 +319,7 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
           )}
         </div>
 
-        {/* Footer row: char counter + hint */}
+        {/* Footer row */}
         <div
           style={{
             display: "flex",
@@ -333,6 +336,8 @@ export default function InputBar({ onFolderToggle }: InputBarProps) {
               fontSize: 11,
               color: nearLimit ? "var(--destructive)" : "var(--text-dim)",
               opacity: charCount === 0 ? 0.4 : 1,
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "0.01em",
             }}
           >
             {charCount === 0 ? `최대 ${MAX_CHARS.toLocaleString()}자` : `${charCount} / ${MAX_CHARS}`}

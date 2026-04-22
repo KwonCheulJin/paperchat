@@ -69,7 +69,7 @@ export default function SetupScreen({ modelState }: Props) {
             padding: 32,
             background: "var(--sidebar)",
             border: "1px solid var(--border)",
-            borderRadius: 16,
+            borderRadius: 4,
             boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
           }}
         >
@@ -87,15 +87,17 @@ export default function SetupScreen({ modelState }: Props) {
 
           {/* 하드웨어 정보 */}
           {ramGb > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <span
                 style={{
                   padding: "3px 10px",
                   background: "var(--card)",
                   border: "1px solid var(--border)",
-                  borderRadius: 6,
+                  borderRadius: 2,
                   fontSize: 12,
                   color: "var(--text-secondary)",
+                  fontVariantNumeric: "tabular-nums",
+                  letterSpacing: "0.01em",
                 }}
               >
                 RAM {ramGb}GB
@@ -107,7 +109,7 @@ export default function SetupScreen({ modelState }: Props) {
                     padding: "3px 10px",
                     background: "var(--card)",
                     border: "1px solid var(--border)",
-                    borderRadius: 6,
+                    borderRadius: 2,
                     fontSize: 12,
                     color: "var(--text-secondary)",
                     maxWidth: 220,
@@ -140,10 +142,12 @@ export default function SetupScreen({ modelState }: Props) {
                   padding: "8px 12px",
                   background: "var(--card)",
                   border: "1px solid var(--border)",
-                  borderRadius: 8,
+                  borderRadius: 2,
                   fontSize: 13,
                   color: "var(--foreground)",
                   cursor: "pointer",
+                  fontFamily: "inherit",
+                  outline: "none",
                 }}
               >
                 {allModels.map((m) => (
@@ -154,7 +158,7 @@ export default function SetupScreen({ modelState }: Props) {
                 ))}
               </select>
               {selectedModel && (
-                <p style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                <p style={{ fontSize: 12, color: "var(--text-dim)", fontVariantNumeric: "tabular-nums" }}>
                   {selectedModel.size_gb}GB 다운로드 필요
                   {selectedModel.n_gpu_layers > 0 ? " · GPU 가속" : " · CPU 전용"}
                 </p>
@@ -162,10 +166,10 @@ export default function SetupScreen({ modelState }: Props) {
             </div>
           )}
 
-          {/* 로딩 스피너 (initializing / verifying / switching / loading) */}
+          {/* 로딩 (initializing / verifying / switching / loading) */}
           {(isInitializing || isLoading) && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text-dim)", fontSize: 13 }}>
-              <span style={{ animation: "tp 1.2s ease infinite", display: "inline-block" }}>•</span>
+              <span style={{ animation: "tp 1.2s ease infinite", display: "inline-block", color: "var(--primary)" }}>•</span>
               <span>{STAGE_LABELS[state] ?? "처리 중..."}</span>
             </div>
           )}
@@ -173,7 +177,14 @@ export default function SetupScreen({ modelState }: Props) {
           {/* 다운로드 진행 */}
           {isDownloading && downloadProgress && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 12,
+                color: "var(--text-muted)",
+                fontVariantNumeric: "tabular-nums",
+                letterSpacing: "0.01em",
+              }}>
                 <span>
                   {downloadProgress.downloadedMb.toFixed(0)}MB / {downloadProgress.totalMb.toFixed(0)}MB
                 </span>
@@ -182,9 +193,9 @@ export default function SetupScreen({ modelState }: Props) {
               <div
                 style={{
                   width: "100%",
-                  height: 6,
+                  height: 4,
                   background: "var(--surface-2)",
-                  borderRadius: 999,
+                  borderRadius: 1,
                   overflow: "hidden",
                 }}
               >
@@ -193,14 +204,19 @@ export default function SetupScreen({ modelState }: Props) {
                     width: "100%",
                     height: "100%",
                     background: "var(--primary)",
-                    borderRadius: 999,
+                    borderRadius: 1,
                     transform: `scaleX(${downloadProgress.percent / 100})`,
                     transformOrigin: "left",
                     transition: "transform 0.3s ease",
                   }}
                 />
               </div>
-              <p style={{ fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>
+              <p style={{
+                fontSize: 12,
+                color: "var(--text-dim)",
+                textAlign: "center",
+                fontVariantNumeric: "tabular-nums",
+              }}>
                 {downloadProgress.percent}% 완료
               </p>
             </div>
@@ -211,9 +227,9 @@ export default function SetupScreen({ modelState }: Props) {
             <div
               style={{
                 padding: "10px 14px",
-                background: "rgba(239,68,68,0.08)",
-                border: "1px solid rgba(239,68,68,0.3)",
-                borderRadius: 8,
+                background: "color-mix(in oklch, var(--destructive) 8%, transparent)",
+                border: "1px solid color-mix(in oklch, var(--destructive) 25%, transparent)",
+                borderRadius: 2,
                 fontSize: 12,
                 color: "var(--text-muted)",
                 lineHeight: 1.6,
@@ -222,7 +238,7 @@ export default function SetupScreen({ modelState }: Props) {
               {failureReason}
               {getErrorAdvice(failureReason) && (
                 <p style={{ marginTop: 6, color: "var(--text-secondary)", fontWeight: 500 }}>
-                  💡 {getErrorAdvice(failureReason)}
+                  {getErrorAdvice(failureReason)}
                 </p>
               )}
             </div>
@@ -239,10 +255,11 @@ export default function SetupScreen({ modelState }: Props) {
                     padding: "10px 16px",
                     background: "transparent",
                     border: "1px solid var(--input)",
-                    borderRadius: 8,
+                    borderRadius: 2,
                     fontSize: 13,
                     color: "var(--text-muted)",
                     cursor: "pointer",
+                    fontFamily: "inherit",
                     transition: "border-color 0.15s, color 0.15s",
                   }}
                   onMouseEnter={(e) => {
@@ -265,11 +282,12 @@ export default function SetupScreen({ modelState }: Props) {
                     padding: "10px 16px",
                     background: selectedModel ? "var(--primary)" : "var(--border)",
                     border: "none",
-                    borderRadius: 8,
+                    borderRadius: 2,
                     fontSize: 13,
                     fontWeight: 600,
                     color: selectedModel ? "var(--background)" : "var(--text-dim)",
                     cursor: selectedModel ? "pointer" : "not-allowed",
+                    fontFamily: "inherit",
                     transition: "opacity 0.15s",
                   }}
                   onMouseEnter={(e) => {
