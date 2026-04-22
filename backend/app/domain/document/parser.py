@@ -109,6 +109,12 @@ def _extract_text_ocr(content: bytes) -> list[str]:
     if tess_cmd:
         pytesseract.pytesseract.tesseract_cmd = tess_cmd
 
+    # tessdata 경로는 TESSDATA_PREFIX 환경변수로 전달 — --tessdata-dir CLI 인자는
+    # Windows에서 quote 처리·경로 구분자 이슈로 간헐 실패함. env var가 가장 안정적.
+    tessdata_dir = _find_tessdata_dir()
+    if tessdata_dir:
+        os.environ["TESSDATA_PREFIX"] = tessdata_dir
+
     doc = fitz.open(stream=content, filetype="pdf")
     pages: list[str] = []
 
@@ -129,17 +135,10 @@ def _extract_text_ocr(content: bytes) -> list[str]:
         img_enh = ImageEnhance.Contrast(img_gray).enhance(2.0)
         img_sharp = img_enh.filter(ImageFilter.SHARPEN)
 
-        tessdata_dir = _find_tessdata_dir()
-        config = "--psm 3 --oem 1"
-        if tessdata_dir:
-            # Windows 경로에 공백이 있을 수 있으므로 따옴표로 감쌈
-            safe_dir = tessdata_dir.replace("\\", "/")
-            config = f'--tessdata-dir "{safe_dir}" {config}'
-
         text = pytesseract.image_to_string(
             img_sharp,
             lang="kor+eng",
-            config=config,
+            config="--psm 3 --oem 1",
         )
         if text.strip():
             pages.append(text)
