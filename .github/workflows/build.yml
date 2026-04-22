@@ -50,6 +50,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path desktop/src-tauri/binaries -Force | Out-Null
           Expand-Archive -Path paperchat-binaries.zip -DestinationPath desktop/src-tauri/binaries -Force
+          # tauri.conf.json resources는 아키텍처 접미사 없는 이름을 기대함
+          Rename-Item "desktop/src-tauri/binaries/llama-server-x86_64-pc-windows-msvc.exe" "llama-server.exe"
+          Rename-Item "desktop/src-tauri/binaries/backend-x86_64-pc-windows-msvc.exe" "paperchat-server.exe"
           Write-Host "Binaries extracted:"
           Get-ChildItem desktop/src-tauri/binaries | Select-Object Name, Length
 
