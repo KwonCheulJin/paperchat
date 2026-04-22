@@ -32,9 +32,15 @@ if (!Array.isArray(res) && typeof res !== 'object') {
 console.log('[validate-tauri] tauri.conf.json 형식 OK');
 "
 
-# ── 3. SKIP_TAURI_BUILD 확인 ─────────────────────────────────
+# ── 3. SKIP_TAURI_BUILD 또는 바이너리 없음 — 형식 검사만 완료 ─
 if [ -n "${SKIP_TAURI_BUILD:-}" ]; then
   echo "[validate-tauri] SKIP_TAURI_BUILD=1 — tauri build 건너뜀"
+  exit 0
+fi
+
+BINARIES_DIR="$REPO_ROOT/desktop/src-tauri/binaries"
+if [ ! -d "$BINARIES_DIR" ] || ! ls "$BINARIES_DIR"/*.exe > /dev/null 2>&1; then
+  echo "[validate-tauri] 로컬 바이너리 없음 — 형식 검사만 완료 (전체 빌드는 CI에서 수행)"
   exit 0
 fi
 
