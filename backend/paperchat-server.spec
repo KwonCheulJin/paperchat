@@ -23,6 +23,7 @@ hiddenimports += collect_submodules("fastembed")
 hiddenimports += collect_submodules("chromadb")
 hiddenimports += collect_submodules("pypika")
 hiddenimports += collect_submodules("kiwipiepy")
+hiddenimports += collect_submodules("kiwipiepy_model")  # get_model_path 함수 포함
 hiddenimports += collect_submodules("sentence_transformers")
 hiddenimports += collect_submodules("pdfplumber")
 hiddenimports += collect_submodules("pytesseract")

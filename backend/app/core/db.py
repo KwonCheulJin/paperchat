@@ -12,7 +12,12 @@ def get_chroma() -> chromadb.Collection:
     global _chroma_client, _chroma_collection
     if _chroma_collection is None:
         os.makedirs(settings.chroma_path, exist_ok=True)
-        _chroma_client = chromadb.PersistentClient(path=settings.chroma_path)
+        # 오프라인 앱이므로 chromadb의 posthog telemetry 비활성화
+        # (네트워크 호출 실패 시 대기·크래시 요인 제거)
+        _chroma_client = chromadb.PersistentClient(
+            path=settings.chroma_path,
+            settings=chromadb.Settings(anonymized_telemetry=False),
+        )
         _chroma_collection = _chroma_client.get_or_create_collection(
             name=settings.chroma_collection,
             metadata={"hnsw:space": "cosine"},
