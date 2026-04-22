@@ -766,6 +766,14 @@ mod commands {
     }
 
     #[tauri::command]
+    pub fn close_app(app: tauri::AppHandle) {
+        std::thread::spawn(move || {
+            app.state::<ProcessManagerState>().0.lock().unwrap().shutdown_all();
+            app.exit(0);
+        });
+    }
+
+    #[tauri::command]
     pub async fn pick_pdf_files() -> Result<Vec<String>, String> {
         Ok(vec![])
     }
@@ -1148,6 +1156,7 @@ pub fn run() {
             commands::get_model_state,
             commands::get_model_status,
             commands::stop_all_sidecars,
+            commands::close_app,
             commands::pick_pdf_files,
             commands::read_logs,
             commands::install_model,

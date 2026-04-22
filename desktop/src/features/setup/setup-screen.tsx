@@ -1,5 +1,6 @@
 import { UseModelStateReturn } from "../../hooks/use-model-state";
 import { GlobalStyles } from "../../shared/ui/global-styles";
+import { WinControls } from "../../shared/ui/win-controls";
 
 const ERROR_ADVICE: Array<{ patterns: string[]; advice: string }> = [
   { patterns: ["disk", "space", "enospc", "storage", "no space"], advice: "디스크 여유 공간을 확인하세요." },
@@ -52,13 +53,27 @@ export default function SetupScreen({ modelState }: Props) {
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           height: "100vh",
           background: "var(--background)",
           color: "var(--foreground)",
-          alignItems: "center",
-          justifyContent: "center",
         }}
       >
+        {/* Drag region + window controls */}
+        <div
+          className="flex items-center justify-end h-[38px] shrink-0"
+          data-tauri-drag-region
+        >
+          <WinControls />
+        </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
         <div
           style={{
             width: "100%",
@@ -306,6 +321,7 @@ export default function SetupScreen({ modelState }: Props) {
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
     </>

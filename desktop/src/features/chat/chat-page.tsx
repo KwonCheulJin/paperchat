@@ -8,6 +8,7 @@ import DocumentPanel from "../documents/document-panel";
 import { I } from "../../shared/ui/icons";
 import { Tb } from "../../shared/ui/toolbar-button";
 import { GlobalStyles } from "../../shared/ui/global-styles";
+import { WinControls } from "../../shared/ui/win-controls";
 import { PROFILES } from "../../shared/profiles";
 
 export default function ChatPage() {
@@ -46,9 +47,12 @@ export default function ChatPage() {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0 h-full">
-          {/* TopBar */}
-          <div className="flex items-center justify-between px-3 h-[44px] shrink-0">
-            <div className="flex items-center gap-2">
+          {/* TopBar — drag region + window controls */}
+          <div
+            className="flex items-center justify-between h-[44px] shrink-0"
+            data-tauri-drag-region
+          >
+            <div className="flex items-center gap-2 pl-3">
               <Tb
                 icon={I.sidebarL}
                 tip={leftPinned ? "사이드바 해제" : "사이드바 고정"}
@@ -75,13 +79,18 @@ export default function ChatPage() {
                 </div>
               )}
             </div>
-            <Tb
-              icon={I.sidebarR}
-              tip={rightPinned ? "문서 패널 해제" : "문서 패널 고정"}
-              onClick={() => setRightPinned((v) => !v)}
-              act={rightPinned}
-              activeColor="var(--primary)"
-            />
+            <div className="flex items-center h-full">
+              <div className="pr-1">
+                <Tb
+                  icon={I.sidebarR}
+                  tip={rightPinned ? "문서 패널 해제" : "문서 패널 고정"}
+                  onClick={() => setRightPinned((v) => !v)}
+                  act={rightPinned}
+                  activeColor="var(--primary)"
+                />
+              </div>
+              <WinControls />
+            </div>
           </div>
 
           {/* Message area */}
