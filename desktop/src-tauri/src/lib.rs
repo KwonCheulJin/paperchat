@@ -106,7 +106,7 @@ pub const MODELS: &[ModelInfo] = &[
         profile: "standard",
         name: "Qwen3 8B",
         filename: "Qwen3-8B-Q4_K_M.gguf",
-        url: "https://huggingface.co/bartowski/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
+        url: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
         size_gb: 5.2,
         n_gpu_layers: 0,
     },
@@ -114,7 +114,7 @@ pub const MODELS: &[ModelInfo] = &[
         profile: "performance",
         name: "Qwen3 14B",
         filename: "Qwen3-14B-Q4_K_M.gguf",
-        url: "https://huggingface.co/bartowski/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf",
+        url: "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf",
         size_gb: 9.0,
         n_gpu_layers: 99,
     },
@@ -122,7 +122,7 @@ pub const MODELS: &[ModelInfo] = &[
         profile: "maximum",
         name: "Qwen3 32B",
         filename: "Qwen3-32B-Q4_K_M.gguf",
-        url: "https://huggingface.co/bartowski/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
+        url: "https://huggingface.co/Qwen/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
         size_gb: 20.0,
         n_gpu_layers: 99,
     },
@@ -132,6 +132,34 @@ pub const MODELS: &[ModelInfo] = &[
 
 static DOWNLOAD_CANCELLED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
+
+// ─── GGUF 파일 검증 ──────────────────────────────────────────────────────────
+
+const GGUF_MAGIC: &[u8; 4] = b"GGUF";
+/// 유효한 GGUF 모델 파일의 최소 크기 (1 GB).
+/// 지원 모델 중 가장 작은 nano 가 3.2GB 이므로 1GB 미만은 손상/부분 다운로드.
+const MIN_MODEL_BYTES: u64 = 1_073_741_824;
+
+/// 파일 첫 4바이트가 GGUF 매직인지 확인
+fn has_gguf_magic(path: &std::path::Path) -> bool {
+    use std::io::Read;
+    let mut file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(_) => return false,
+    };
+    let mut buf = [0u8; 4];
+    if file.read_exact(&mut buf).is_err() { return false; }
+    &buf == GGUF_MAGIC
+}
+
+/// GGUF 매직 + 최소 크기 모두 만족하는지 확인
+fn is_valid_gguf(path: &std::path::Path) -> bool {
+    let size = match std::fs::metadata(path) {
+        Ok(m) => m.len(),
+        Err(_) => return false,
+    };
+    size >= MIN_MODEL_BYTES && has_gguf_magic(path)
+}
 
 // ─── ModelState (라이프사이클 상태 머신) ─────────────────────────────────────
 
@@ -434,14 +462,19 @@ fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)
         let model_path = std::path::Path::new(&cfg.install_path)
             .join("models")
             .join(&cfg.model_file);
-        if model_path.exists() {
+        if is_valid_gguf(&model_path) {
             return Some((model_path, cfg.n_gpu_layers));
         }
     }
     let models_dir = data_dir.join("models");
     let model_path = std::fs::read_dir(&models_dir).ok()?.find_map(|entry| {
         let path = entry.ok()?.path();
-        if path.extension()?.to_str()? == "gguf" { Some(path) } else { None }
+        if path.extension()?.to_str()? != "gguf" { return None; }
+        if !is_valid_gguf(&path) {
+            log_info!("손상/부분 GGUF 파일 무시: {}", path.display());
+            return None;
+        }
+        Some(path)
     })?;
     Some((model_path, 0))
 }
@@ -585,7 +618,18 @@ fn download_file(
     let mut resp = client.get(url).send()
         .map_err(|e| format!("연결 실패: {}", e))?;
 
+    if !resp.status().is_success() {
+        return Err(format!("서버 응답 오류: HTTP {}", resp.status().as_u16()));
+    }
+
     let total = resp.content_length().unwrap_or(0);
+    // Content-Length 가 있고 비정상적으로 작으면 즉시 실패 (rate limit/에러 페이지 등)
+    if total > 0 && total < MIN_MODEL_BYTES {
+        return Err(format!(
+            "서버가 보고한 파일 크기가 너무 작습니다 ({} MB) — URL 만료 또는 rate limit 추정",
+            total / 1_048_576
+        ));
+    }
     let total_mb = total as f64 / 1_048_576.0;
 
     let mut file = std::fs::File::create(&tmp_path)
@@ -643,10 +687,22 @@ fn download_file(
     }
 
     drop(file);
+
+    // 다운로드된 tmp 파일 검증 — GGUF 매직 + 최소 크기
+    if !is_valid_gguf(&tmp_path) {
+        let actual_size = std::fs::metadata(&tmp_path).map(|m| m.len()).unwrap_or(0);
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(format!(
+            "다운로드 파일 검증 실패 — 실제 크기 {} bytes, GGUF 형식 아님 (네트워크/서버 오류 추정)",
+            actual_size
+        ));
+    }
+
     std::fs::rename(&tmp_path, final_path)
         .map_err(|e| format!("파일 이동 실패: {}", e))?;
 
-    log_info!("다운로드 완료: {} ({:.0}MB)", filename, total_mb);
+    let actual_mb = downloaded as f64 / 1_048_576.0;
+    log_info!("다운로드 완료: {} ({:.0}MB, 예상 {:.0}MB)", filename, actual_mb, total_mb);
     Ok(DownloadOutcome::Done)
 }
 
@@ -668,8 +724,20 @@ fn run_install_lifecycle(
     let _ = std::fs::create_dir_all(&models_dir);
     let final_path = models_dir.join(&filename);
 
-    // ── Downloading (이미 파일 있으면 스킵) ────────────────────────────────
-    if !final_path.exists() {
+    // ── Downloading (유효한 GGUF 파일이면 스킵, 손상 파일은 삭제 후 재다운로드) ──
+    if !is_valid_gguf(&final_path) {
+        // 손상/부분 파일 있으면 정리
+        if final_path.exists() {
+            let size = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
+            log_info!("기존 모델 파일 검증 실패 ({} bytes) — 삭제 후 재다운로드", size);
+            let _ = std::fs::remove_file(&final_path);
+        }
+        // 잔존 tmp 파일도 정리 (크래시 등으로 남은 경우)
+        let stale_tmp = final_path.with_extension("gguf.tmp");
+        if stale_tmp.exists() {
+            let _ = std::fs::remove_file(&stale_tmp);
+        }
+
         model_store.set_and_emit(&app, ModelState::Downloading {
             percent: 0, downloaded_mb: 0.0, total_mb: 0.0, speed_mbps: 0.0,
         });
@@ -684,12 +752,13 @@ fn run_install_lifecycle(
         }
     }
 
-    // ── Verifying (파일 존재 확인) ──────────────────────────────────────────
-    // 다운로드 완료(Done) 시 HTTP 클라이언트가 전송 완료를 보장하므로 크기 검증 불필요
+    // ── Verifying (GGUF 매직 + 최소 크기 검증) ──────────────────────────────
     model_store.set_and_emit(&app, ModelState::Verifying);
-    if !final_path.exists() || std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0) == 0 {
-        let reason = "다운로드 파일을 찾을 수 없습니다".to_string();
+    if !is_valid_gguf(&final_path) {
+        let size = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
+        let reason = format!("다운로드 파일 검증 실패 — 크기 {} bytes, GGUF 형식 아님", size);
         log_error!("{}", reason);
+        let _ = std::fs::remove_file(&final_path);
         model_store.set_and_emit(&app, ModelState::Failed { reason });
         return;
     }
@@ -1038,6 +1107,76 @@ mod tests {
     fn process_manager_kill_llm_safe_when_empty() {
         let mut pm = ProcessManager::new();
         pm.kill_llm(); // panic 없어야 함
+    }
+
+    // ── GGUF 검증 테스트 ─────────────────────────────────────────────────────
+
+    fn unique_tmp(name: &str) -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        std::env::temp_dir().join(format!("paperchat_test_{}_{}_{}.bin",
+            name, std::process::id(), n))
+    }
+
+    #[test]
+    fn has_gguf_magic_rejects_missing_file() {
+        let path = unique_tmp("missing");
+        let _ = std::fs::remove_file(&path);
+        assert!(!has_gguf_magic(&path));
+    }
+
+    #[test]
+    fn has_gguf_magic_rejects_short_file() {
+        use std::io::Write;
+        let path = unique_tmp("short");
+        std::fs::File::create(&path).unwrap().write_all(b"GGU").unwrap();
+        assert!(!has_gguf_magic(&path));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn has_gguf_magic_accepts_correct_header() {
+        use std::io::Write;
+        let path = unique_tmp("valid_magic");
+        std::fs::File::create(&path).unwrap().write_all(b"GGUFrest").unwrap();
+        assert!(has_gguf_magic(&path));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn has_gguf_magic_rejects_wrong_bytes() {
+        use std::io::Write;
+        let path = unique_tmp("wrong_magic");
+        std::fs::File::create(&path).unwrap().write_all(b"NOTGGUFpayload").unwrap();
+        assert!(!has_gguf_magic(&path));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn is_valid_gguf_rejects_small_file_with_magic() {
+        use std::io::Write;
+        // 매직은 있지만 크기 부족 — 실제 버그 시나리오 (29바이트 손상 파일)
+        let path = unique_tmp("small_magic");
+        std::fs::File::create(&path).unwrap().write_all(b"GGUF tiny content").unwrap();
+        assert!(!is_valid_gguf(&path));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn is_valid_gguf_rejects_missing_file() {
+        let path = unique_tmp("missing_valid");
+        let _ = std::fs::remove_file(&path);
+        assert!(!is_valid_gguf(&path));
+    }
+
+    #[test]
+    fn is_valid_gguf_constants_are_consistent() {
+        // 최소 크기는 가장 작은 모델(nano 3.2GB)보다 작아야 함
+        let smallest_model_bytes = (MODELS[0].size_gb * 1_073_741_824.0) as u64;
+        assert!(MIN_MODEL_BYTES < smallest_model_bytes);
+        // GGUF 매직은 정확히 4바이트
+        assert_eq!(GGUF_MAGIC.len(), 4);
     }
 }
 

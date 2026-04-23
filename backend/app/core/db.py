@@ -40,6 +40,33 @@ def init_db_schema() -> None:
     """앱 시작 시 한 번 호출. 테이블 없으면 생성."""
     conn = get_sqlite()
 
+    # ── 선행 마이그레이션: 기존 테이블에 누락된 컬럼 추가 ─────────────────────
+    # 아래 FTS5 마이그레이션이 documents.migration_status 컬럼을 사용하므로,
+    # ALTER TABLE 은 반드시 그 전에 실행돼야 한다.
+    # (v0.5.1 이하 구 DB 업그레이드 시 컬럼이 없어 UPDATE 크래시하던 버그 수정)
+    doc_table_exists = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='documents'"
+    ).fetchone()
+    if doc_table_exists:
+        doc_cols = {row[1] for row in conn.execute("PRAGMA table_info(documents)").fetchall()}
+        for col_name, col_def in [
+            ("folder", "TEXT DEFAULT ''"),
+            ("migration_status", "TEXT DEFAULT NULL"),
+            ("embed_model", "TEXT DEFAULT ''"),
+        ]:
+            if col_name not in doc_cols:
+                conn.execute(f"ALTER TABLE documents ADD COLUMN {col_name} {col_def}")
+
+    metrics_table_exists = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='metrics'"
+    ).fetchone()
+    if metrics_table_exists:
+        metrics_cols = {row[1] for row in conn.execute("PRAGMA table_info(metrics)").fetchall()}
+        if "reranker_ms" not in metrics_cols:
+            conn.execute("ALTER TABLE metrics ADD COLUMN reranker_ms INTEGER")
+
+    conn.commit()
+
     # FTS5 마이그레이션: content-backed → standalone
     # content= 스펙은 chunks 테이블과 동기화를 가정하므로 para_text 별도 저장 불가.
     # standalone FTS5로 교체하고 기존 문서는 백그라운드 재인덱싱.
@@ -134,16 +161,22 @@ def init_db_schema() -> None:
         );
     """)
 
-    # 마이그레이션: documents 컬럼 추가
-    doc_cols = {row[1] for row in conn.execute("PRAGMA table_info(documents)").fetchall()}
-    if "folder" not in doc_cols:
-        conn.execute("ALTER TABLE documents ADD COLUMN folder TEXT DEFAULT ''")
-    if "migration_status" not in doc_cols:
-        conn.execute("ALTER TABLE documents ADD COLUMN migration_status TEXT DEFAULT NULL")
-    if "embed_model" not in doc_cols:
-        conn.execute("ALTER TABLE documents ADD COLUMN embed_model TEXT DEFAULT ''")
+    # (컬럼 ALTER TABLE 은 위쪽 선행 마이그레이션에서 이미 처리됨)
+    # executescript 의 CREATE TABLE IF NOT EXISTS 는 기존 테이블이 있으면 no-op
+    # 이므로 처음 설치 케이스에서는 위 ALTER 블록이 스킵되고 여기서 전체 스키마가 생성됨.
+    # 두 경로 모두 최종 스키마는 동일해야 한다.
 
-    # 마이그레이션: metrics 테이블에 reranker_ms 컬럼 추가
+    # 신규 DB 케이스: 방금 executescript 로 생성된 documents 에도 누락 컬럼이 있는지 확인
+    # (향후 스키마 진화 시 동일 패턴 사용 가능한 idempotent 블록)
+    doc_cols = {row[1] for row in conn.execute("PRAGMA table_info(documents)").fetchall()}
+    for col_name, col_def in [
+        ("folder", "TEXT DEFAULT ''"),
+        ("migration_status", "TEXT DEFAULT NULL"),
+        ("embed_model", "TEXT DEFAULT ''"),
+    ]:
+        if col_name not in doc_cols:
+            conn.execute(f"ALTER TABLE documents ADD COLUMN {col_name} {col_def}")
+
     metrics_cols = {row[1] for row in conn.execute("PRAGMA table_info(metrics)").fetchall()}
     if "reranker_ms" not in metrics_cols:
         conn.execute("ALTER TABLE metrics ADD COLUMN reranker_ms INTEGER")
