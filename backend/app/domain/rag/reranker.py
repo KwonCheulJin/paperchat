@@ -33,9 +33,15 @@ def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
     # Short-circuit: 입력이 이미 top_k 이하면 cross-encoder 추론 생략.
     # bge-reranker-v2-m3 는 CPU 에서 쌍당 ~10-30ms → 40쌍이면 0.5-1s 의 TTFT 주범.
     # 입력 개수가 적으면 재정렬 이득 없으므로 원본 순서 유지 (hybrid_search 의 RRF 점수 존중).
+    # rerank_score 는 RRF 점수를 max-normalize 한 상대 점수 — UI "관련도 X%" 표시용.
+    # (0.0 고정값은 "관련도 낮음 · 0%" 로 표시돼 사용자 오해 유발하므로 피함)
     if len(chunks) <= top_k:
         logger.info("rerank_skipped", reason="input_le_topk", input=len(chunks), top_k=top_k)
-        return [dict(c, rerank_score=0.0) for c in chunks[:top_k]]
+        max_rrf = max((c.get("rrf_score", 0.0) for c in chunks), default=0.0) or 1.0
+        return [
+            dict(c, rerank_score=float(c.get("rrf_score", 0.0)) / max_rrf)
+            for c in chunks[:top_k]
+        ]
 
     model = _get_rerank_model()
     pairs = [(query, c["text"]) for c in chunks]

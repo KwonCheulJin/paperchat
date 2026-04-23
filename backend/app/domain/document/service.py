@@ -184,6 +184,16 @@ async def ingest_pdf(
     # 6. 백그라운드 온톨로지 큐잉
     get_scheduler().enqueue_ontology(doc_id, paragraph_chunks)
 
+    # 7. 해당 folder 의 SemanticCache 무효화
+    # (새 문서가 들어왔으므로 기존 캐시된 답변은 stale)
+    try:
+        from app.domain.rag.cache import get_cache
+        removed = get_cache().invalidate_folder(folder)
+        if removed:
+            _log.info("cache_invalidated_on_upload", folder=folder or "", removed=removed)
+    except Exception as _ce:
+        _log.warning("cache_invalidate_failed", error=str(_ce))
+
     _log.info("ingest_done", chunks=total_para)
 
     yield _sse({
@@ -221,9 +231,10 @@ def delete_document(doc_id: str) -> bool:
     from app.infrastructure.vector_store.chroma_adapter import delete_doc_vectors
 
     conn = get_sqlite()
-    row = conn.execute("SELECT id FROM documents WHERE id=?", (doc_id,)).fetchone()
+    row = conn.execute("SELECT id, folder FROM documents WHERE id=?", (doc_id,)).fetchone()
     if not row:
         return False
+    folder = row[1] if len(row) > 1 else None
 
     # 1. FTS5 먼저 삭제 (virtual table은 CASCADE 미적용)
     conn.execute(
@@ -240,5 +251,15 @@ def delete_document(doc_id: str) -> bool:
     except Exception as e:
         logger.warning("chroma_delete_failure", doc_id=doc_id, error=str(e))
 
-    logger.info("delete_document", doc_id=doc_id)
+    # 4. 해당 folder 의 SemanticCache 무효화
+    # (문서가 사라졌으므로 기존 문서 기반 답변을 재사용하면 안 됨)
+    try:
+        from app.domain.rag.cache import get_cache
+        removed = get_cache().invalidate_folder(folder)
+        if removed:
+            logger.info("cache_invalidated_on_delete", folder=folder or "", removed=removed)
+    except Exception as e:
+        logger.warning("cache_invalidate_failed", error=str(e))
+
+    logger.info("delete_document", doc_id=doc_id, folder=folder or "")
     return True

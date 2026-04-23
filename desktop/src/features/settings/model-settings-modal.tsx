@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useInstalledModels } from "../../hooks/use-installed-models";
 import type { ModelInfo } from "../../hooks/use-model-state";
 import { useModelState } from "../../hooks/use-model-state";
@@ -32,10 +33,10 @@ export default function ModelSettingsModal({ open, onClose }: Props) {
     if (e.target === e.currentTarget) onClose();
   };
 
-  return (
+  return createPortal(
     <div
       onClick={onBackdropClick}
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-8"
+      className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-8"
     >
       <div className="bg-sidebar border border-border rounded w-full max-w-[560px] max-h-[80vh] flex flex-col overflow-hidden shadow-[0_24px_48px_rgba(0,0,0,0.6)]">
         {/* 헤더 */}
@@ -163,6 +164,7 @@ export default function ModelSettingsModal({ open, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

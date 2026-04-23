@@ -90,9 +90,9 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
     # 2. PriorityScheduler 알림 — 온톨로지 추출 일시정지
     get_scheduler().notify_chat()
 
-    # 3. SemanticCache 조회
+    # 3. SemanticCache 조회 (folder 스코프로 분리 — 다른 folder 답변 오염 방지)
     cache = get_cache()
-    cached_answer = await cache.get(question)
+    cached_answer = await cache.get(question, folder=request.folder)
     if cached_answer:
         _log.info("cache_hit_stream", question=mask_query(question))
         # 캐시 히트 시 토큰 단위로 분할 yield (자연스러운 스트리밍 효과)
@@ -245,9 +245,13 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
     # 출력 검증 (경고 추가 등 — 이미 yield된 토큰과 별도로 전체 응답 검증)
     validated = validate_output(full_answer)
 
-    # 10. SemanticCache 저장 (열거 쿼리는 건너뜀 — 매번 최신 DB 조회 보장)
-    if validated and not skip_cache:
-        await cache.put(question, validated)
+    # 10. SemanticCache 저장
+    # - 열거 쿼리 제외 (매번 최신 DB 조회 보장)
+    # - 검색 결과가 비어있는 placeholder 답변("문서를 제공해주세요" 류)은 캐시하지 않음
+    #   → 나중에 문서 업로드 후 동일 질문 시 placeholder 가 재생되는 버그 방지
+    # - folder 스코프로 저장 (다른 folder 답변과 격리)
+    if validated and not skip_cache and len(search_results) > 0:
+        await cache.put(question, validated, folder=request.folder)
 
     # 메트릭 기록
     try:
