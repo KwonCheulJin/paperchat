@@ -10,7 +10,8 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path $PSScriptRoot -Parent
 $BinariesDir = Join-Path $Root "desktop/src-tauri/binaries"
-$ZipPath = Join-Path $Root "binaries.zip"
+# .github/workflows/build.yml 의 release-downloader 가 받는 파일명과 일치해야 함
+$ZipPath = Join-Path $Root "paperchat-binaries.zip"
 $Repo = "KwonCheulJin/paperchat"
 $Tag = "binaries-latest"
 

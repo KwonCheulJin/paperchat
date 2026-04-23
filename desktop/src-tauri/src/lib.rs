@@ -457,7 +457,33 @@ fn load_installer_config() -> Option<InstallerConfig> {
     serde_json::from_str(&content).ok()
 }
 
+/// 파일명으로 MODELS 메타 조회. 외부 배치 모델(메타 없음)은 None 반환.
+fn lookup_model_meta(filename: &str) -> Option<&'static ModelInfo> {
+    MODELS.iter().find(|m| m.filename == filename)
+}
+
+/// models/ 디렉토리에서 파일명으로 n_gpu_layers 를 얻음 (메타 없으면 CPU=0).
+fn n_gpu_layers_for(filename: &str) -> i32 {
+    lookup_model_meta(filename).map(|m| m.n_gpu_layers).unwrap_or(0)
+}
+
 fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)> {
+    let models_dir = data_dir.join("models");
+
+    // 1. active.txt 우선 — 사용자가 명시적으로 선택한 활성 모델
+    let active_path = models_dir.join("active.txt");
+    if let Ok(content) = std::fs::read_to_string(&active_path) {
+        let filename = content.trim();
+        if !filename.is_empty() {
+            let path = models_dir.join(filename);
+            if is_valid_gguf(&path) {
+                return Some((path, n_gpu_layers_for(filename)));
+            }
+            log_info!("active.txt 참조 모델 유효하지 않음: {} — fallback", filename);
+        }
+    }
+
+    // 2. 인스톨러가 지정한 모델 (레거시 경로)
     if let Some(cfg) = load_installer_config() {
         let model_path = std::path::Path::new(&cfg.install_path)
             .join("models")
@@ -466,7 +492,8 @@ fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)
             return Some((model_path, cfg.n_gpu_layers));
         }
     }
-    let models_dir = data_dir.join("models");
+
+    // 3. Fallback: models/ 첫 유효 .gguf
     let model_path = std::fs::read_dir(&models_dir).ok()?.find_map(|entry| {
         let path = entry.ok()?.path();
         if path.extension()?.to_str()? != "gguf" { return None; }
@@ -476,7 +503,27 @@ fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)
         }
         Some(path)
     })?;
-    Some((model_path, 0))
+    let n_gpu = model_path.file_name()
+        .and_then(|n| n.to_str())
+        .map(n_gpu_layers_for)
+        .unwrap_or(0);
+    Some((model_path, n_gpu))
+}
+
+/// active.txt 를 atomic 하게 업데이트 (tmp → rename).
+fn write_active_model(data_dir: &std::path::Path, filename: &str) -> Result<(), String> {
+    let models_dir = data_dir.join("models");
+    std::fs::create_dir_all(&models_dir).map_err(|e| format!("models 디렉토리 생성 실패: {}", e))?;
+    let active_path = models_dir.join("active.txt");
+    let tmp_path = active_path.with_extension("txt.tmp");
+    std::fs::write(&tmp_path, filename).map_err(|e| format!("active.txt 쓰기 실패: {}", e))?;
+    std::fs::rename(&tmp_path, &active_path).map_err(|e| format!("active.txt rename 실패: {}", e))?;
+    Ok(())
+}
+
+fn read_active_model(data_dir: &std::path::Path) -> Option<String> {
+    let active_path = data_dir.join("models").join("active.txt");
+    std::fs::read_to_string(&active_path).ok().map(|s| s.trim().to_string())
 }
 
 fn find_tesseract() -> Option<String> {
@@ -565,10 +612,22 @@ fn launch_llm_process(
 
     let existing_path = std::env::var("PATH").unwrap_or_default();
     let dll_path = format!("{};{}", dir.to_string_lossy(), existing_path);
-    let cpu_threads = std::thread::available_parallelism()
-        .map(|n| (n.get() / 2).max(2))
-        .unwrap_or(2)
-        .to_string();
+
+    // n_gpu_layers > 0 = GPU 전체 오프로드. CPU 는 토크나이저·샘플링만 담당하므로
+    // 스레드 많으면 컨텍스트 스위칭 오버헤드가 되레 커짐. 2개 고정.
+    // CPU 추론 모드(nano/minimal)는 기존처럼 (코어/2) 으로 병렬화.
+    let cpu_threads = if n_gpu_layers > 0 {
+        "2".to_string()
+    } else {
+        std::thread::available_parallelism()
+            .map(|n| (n.get() / 2).max(2))
+            .unwrap_or(2)
+            .to_string()
+    };
+
+    // GPU 오프로드 시 KV cache 는 f16 로 (q4_0 은 매 토큰 dequantize 오버헤드).
+    // CPU 추론 시에는 q4_0 유지 (RAM 절약이 더 중요).
+    let kv_cache_type = if n_gpu_layers > 0 { "f16" } else { "q4_0" };
 
     hidden_cmd(llama_bin.to_str().unwrap_or("llama-server"))
         .args([
@@ -577,10 +636,12 @@ fn launch_llm_process(
             "--port", "11434",
             "--ctx-size", "4096",
             "--threads", &cpu_threads,
-            "--batch-size", "256",
+            // 프롬프트 배치 처리 단위. 256 → 1024 로 확대해 TTFT 단축.
+            // (긴 RAG 프롬프트에서 효과 큼)
+            "--batch-size", "1024",
             "--n-gpu-layers", &n_gpu_layers.to_string(),
-            "--cache-type-k", "q4_0",
-            "--cache-type-v", "q4_0",
+            "--cache-type-k", kv_cache_type,
+            "--cache-type-v", kv_cache_type,
             "--flash-attn", "on",
             "--cache-reuse", "256",
         ])
@@ -706,6 +767,41 @@ fn download_file(
     Ok(DownloadOutcome::Done)
 }
 
+/// 활성 모델만 전환 (이미 다운로드된 모델). llama-server 재시작.
+fn run_switch_lifecycle(
+    app: tauri::AppHandle,
+    model_path: std::path::PathBuf,
+    n_gpu_layers: i32,
+) {
+    use tauri::Manager;
+    let model_store = app.state::<ModelStateStore>();
+    let proc_mgr_state = app.state::<ProcessManagerState>();
+
+    model_store.set_and_emit(&app, ModelState::Switching);
+    if let Err(e) = proc_mgr_state.0.lock().unwrap().spawn_llm(&model_path, n_gpu_layers) {
+        if !is_port_open(LLAMA_PORT) {
+            log_error!("모델 전환 실패: {}", e);
+            model_store.set_and_emit(&app, ModelState::Failed { reason: e });
+            return;
+        }
+    }
+
+    model_store.set_and_emit(&app, ModelState::Loading);
+    match wait_until_loaded(LLAMA_PORT, 60) {
+        Ok(()) => {
+            log_info!("모델 전환 완료 → Ready");
+            model_store.set_and_emit(&app, ModelState::Ready);
+        }
+        Err(reason) => {
+            log_error!("모델 전환 로딩 실패: {}", reason);
+            proc_mgr_state.0.lock().unwrap().kill_llm();
+            model_store.set_and_emit(&app, ModelState::Failed {
+                reason: format!("{} — RAM/VRAM 부족 가능성", reason),
+            });
+        }
+    }
+}
+
 /// install_model 커맨드의 전체 라이프사이클 (별도 스레드에서 실행)
 fn run_install_lifecycle(
     app: tauri::AppHandle,
@@ -763,6 +859,11 @@ fn run_install_lifecycle(
         return;
     }
 
+    // 새 모델을 활성으로 지정 (active.txt atomic write)
+    if let Err(e) = write_active_model(&data_dir, &filename) {
+        log_error!("active.txt 업데이트 실패 (무시하고 진행): {}", e);
+    }
+
     // ── Switching (기존 llama-server 종료 후 재시작) ─────────────────────────
     model_store.set_and_emit(&app, ModelState::Switching);
     // 외부에서 이미 실행 중이면 스폰 건너뜀
@@ -804,8 +905,10 @@ mod commands {
     use crate::{
         BACKEND_PORT, LLAMA_PORT, is_port_open,
         ModelState, ModelStateStore, ProcessManagerState,
-        run_install_lifecycle, DOWNLOAD_CANCELLED, MODELS,
+        run_install_lifecycle, DOWNLOAD_CANCELLED, MODELS, ModelInfo,
         get_ram_gb, get_gpu_info, recommended_model, resolve_model,
+        is_valid_gguf, write_active_model, read_active_model,
+        n_gpu_layers_for, wait_until_loaded,
     };
     use tauri::Manager;
 
@@ -940,6 +1043,90 @@ mod commands {
     #[tauri::command]
     pub fn check_tesseract() -> bool {
         super::find_tesseract().is_some()
+    }
+
+    // ─── 모델 관리 (v0.8.0) ───────────────────────────────────────────────
+
+    #[derive(serde::Serialize)]
+    pub struct InstalledModel {
+        pub filename: String,
+        pub size_bytes: u64,
+        pub is_active: bool,
+        /// MODELS 카탈로그에 있는 모델이면 메타 포함, 외부 배치 모델이면 None.
+        pub meta: Option<ModelInfo>,
+    }
+
+    /// 설치된 모델 목록 조회 (data_dir/models/ 의 유효 .gguf 파일들).
+    #[tauri::command]
+    pub fn list_installed_models(app: tauri::AppHandle) -> Result<Vec<InstalledModel>, String> {
+        let data_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+        let models_dir = data_dir.join("models");
+        let active = read_active_model(&data_dir);
+
+        let entries = match std::fs::read_dir(&models_dir) {
+            Ok(e) => e,
+            Err(_) => return Ok(vec![]),
+        };
+
+        let mut result = vec![];
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("gguf") { continue; }
+            if !is_valid_gguf(&path) { continue; }
+            let filename = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            let is_active = active.as_deref() == Some(filename.as_str());
+            let meta = MODELS.iter().find(|m| m.filename == filename).cloned();
+            result.push(InstalledModel { filename, size_bytes, is_active, meta });
+        }
+        Ok(result)
+    }
+
+    /// 활성 모델 전환 — active.txt 업데이트 + llama-server 재시작.
+    #[tauri::command]
+    pub fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+        // 1. 전환 가능한 상태인지 검사
+        let current = app.state::<ModelStateStore>().get();
+        match current {
+            ModelState::Ready | ModelState::Failed { .. } | ModelState::Idle { .. } => {},
+            _ => return Err("다른 작업이 진행 중입니다".into()),
+        }
+
+        // 2. 파일 유효성
+        let data_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+        let target = data_dir.join("models").join(&filename);
+        if !is_valid_gguf(&target) {
+            return Err(format!("모델 파일이 유효하지 않습니다: {}", filename));
+        }
+
+        // 3. active.txt atomic 업데이트
+        write_active_model(&data_dir, &filename)?;
+        let n_gpu = n_gpu_layers_for(&filename);
+
+        // 4. 백그라운드에서 llama-server 재시작
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            super::run_switch_lifecycle(app_clone, target, n_gpu);
+        });
+        Ok(())
+    }
+
+    /// 모델 파일 삭제 (활성 모델은 삭제 불가).
+    #[tauri::command]
+    pub fn delete_model(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+        let data_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+        if read_active_model(&data_dir).as_deref() == Some(filename.as_str()) {
+            return Err("활성 모델은 삭제할 수 없습니다. 먼저 다른 모델로 전환하세요.".into());
+        }
+        let target = data_dir.join("models").join(&filename);
+        if !target.exists() {
+            return Err("파일이 존재하지 않습니다".into());
+        }
+        std::fs::remove_file(&target).map_err(|e| format!("삭제 실패: {}", e))?;
+        Ok(())
     }
 
     #[tauri::command]
@@ -1323,6 +1510,9 @@ pub fn run() {
             commands::cancel_download,
             commands::check_tesseract,
             commands::install_tesseract,
+            commands::list_installed_models,
+            commands::switch_model,
+            commands::delete_model,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

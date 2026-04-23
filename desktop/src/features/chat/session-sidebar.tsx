@@ -4,6 +4,7 @@ import { I } from "../../shared/ui/icons";
 import { AlertDialog } from "../../shared/ui/alert-dialog";
 import { PROFILES } from "../../shared/profiles";
 import { cn } from "@/lib/utils";
+import ModelSettingsModal from "../settings/model-settings-modal";
 
 export default function SessionSidebar() {
   const { sessions, activeSessionId, createSession, setActiveSession, deleteSession, profile } =
@@ -12,6 +13,7 @@ export default function SessionSidebar() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="flex flex-col h-full bg-sidebar overflow-hidden">
@@ -123,6 +125,17 @@ export default function SessionSidebar() {
         })()}
       </div>
 
+      {/* 하단 설정 버튼 */}
+      <div className="px-2 py-2 border-t border-border shrink-0">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex items-center gap-[9px] w-full bg-transparent border-none rounded-[3px] px-2 py-2 text-sm text-[var(--text-muted)] cursor-pointer text-left font-[inherit] transition-colors duration-[120ms] hover:bg-card hover:text-[var(--text-secondary)]"
+        >
+          {I.customize}
+          <span>설정</span>
+        </button>
+      </div>
+
       <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
@@ -134,6 +147,8 @@ export default function SessionSidebar() {
           setDeleteTarget(null);
         }}
       />
+
+      <ModelSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

@@ -132,12 +132,15 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
         else:
             top_k = 15
 
-    # 5. Hybrid Search (top-40) — CPU bound, executor로 실행
+    # 5. Hybrid Search — CPU bound, executor로 실행
+    # reranker 입력 수를 reranker top_k(일반 8 / 열거 15) 대비 2.5x 확보.
+    # 기존 40 → 20/25 로 축소해 bge-reranker-v2-m3 CPU 추론 시간(주 TTFT 요인) 절반 절감.
+    search_limit = 25 if top_k == 15 else 20
     _retrieval_start = time.monotonic()
     try:
         search_results = await loop.run_in_executor(
             None,
-            functools.partial(hybrid_search, question, folder=request.folder),
+            functools.partial(hybrid_search, question, folder=request.folder, top_k=search_limit),
         )
     except Exception as exc:
         _log.error("hybrid_search_failed", error=str(exc))
