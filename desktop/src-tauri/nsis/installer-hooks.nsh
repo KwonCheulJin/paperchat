@@ -28,15 +28,26 @@
   ; v0.7.1 부터 "디렉토리" 로 바뀌면서 덮어쓰기 설치 시 충돌 발생.
   ; Delete 는 디렉토리는 건드리지 않으므로 파일일 때만 정리됨.
   Delete "$INSTDIR\tessdata"
+  ; v0.4.0~ 런타임이 binaries/*.dll 을 $INSTDIR 로 복사함 (Windows DLL 로더가
+  ; EXE 폴더를 최우선 탐색). 업그레이드 시 stale 루트 DLL 을 지우지 않으면
+  ; 신규 llama-server.exe 와 ABI 충돌 → "프로시저 시작 지점 없음" 에러.
+  Delete "$INSTDIR\ggml*.dll"
+  Delete "$INSTDIR\llama*.dll"
+  Delete "$INSTDIR\cublas*.dll"
+  Delete "$INSTDIR\cublasLt*.dll"
+  Delete "$INSTDIR\cudart*.dll"
+  Delete "$INSTDIR\libomp*.dll"
+  Delete "$INSTDIR\mtmd.dll"
 !macroend
 
-; ── 초기화 훅 (.onInit) ───────────────────────────────────────────────────────
-!macro customInit
+; ── Tauri 2 설치 훅 ──────────────────────────────────────────────────────────
+; Tauri 2 NSIS 템플릿은 NSIS_HOOK_PREINSTALL / NSIS_HOOK_POSTINSTALL /
+; NSIS_HOOK_PREUNINSTALL / NSIS_HOOK_POSTUNINSTALL 만 호출한다.
+; Tauri 1 의 customInit / customInstall / customUnInstall 은 호출되지 않음.
+; PREINSTALL 은 File 커맨드 실행 전이라 이전 설치물 청소에 적합.
+
+!macro NSIS_HOOK_PREINSTALL
   !insertmacro KillPaperchatProcesses
-!macroend
-
-; ── 설치 훅 ───────────────────────────────────────────────────────────────────
-!macro customInstall
   !insertmacro CleanupOldBinaries
 
   DetailPrint "$(pc_tesseract_check)"
@@ -63,8 +74,13 @@
 !macroend
 
 ; ── 언인스톨 훅 ───────────────────────────────────────────────────────────────
-!macro customUnInstall
+; PREUNINSTALL 은 파일 제거 전 — 프로세스 종료 타이밍.
+; POSTUNINSTALL 은 파일 제거 후 — 사용자 데이터 삭제 여부 확인.
+!macro NSIS_HOOK_PREUNINSTALL
   !insertmacro KillPaperchatProcesses
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
   MessageBox MB_YESNO|MB_ICONQUESTION "$(pc_delete_model)" IDNO skip_model_delete
     RMDir /r "$LOCALAPPDATA\com.paperchat.desktop"
   skip_model_delete:

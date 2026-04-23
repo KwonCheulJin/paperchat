@@ -592,7 +592,9 @@ fn launch_llm_process(
     #[cfg(not(windows))]
     let llama_bin = dir.join("llama-server");
 
-    // ggml 백엔드 DLL이 binaries/ 에 있으면 $INSTDIR/ 로 복사
+    // ggml 백엔드 DLL이 binaries/ 에 있으면 $INSTDIR/ 로 복사.
+    // 업그레이드 시 루트 DLL 과 binaries/ DLL 의 ABI 가 달라질 수 있으므로
+    // mtime 비교로 src 가 더 최신일 때 덮어쓴다 (stale 루트 DLL → 심볼 불일치 방어).
     let binaries_dir = dir.join("binaries");
     if binaries_dir.is_dir() {
         if let Ok(entries) = std::fs::read_dir(&binaries_dir) {
@@ -600,7 +602,15 @@ fn launch_llm_process(
                 let src = entry.path();
                 if src.extension().map(|e| e.eq_ignore_ascii_case("dll")).unwrap_or(false) {
                     let dest = dir.join(entry.file_name());
-                    if !dest.exists() {
+                    let need_copy = match (
+                        src.metadata().and_then(|m| m.modified()),
+                        dest.metadata().and_then(|m| m.modified()),
+                    ) {
+                        (Ok(src_m), Ok(dest_m)) => src_m > dest_m,
+                        (Ok(_), Err(_)) => true,
+                        _ => false,
+                    };
+                    if need_copy {
                         if let Err(e) = std::fs::copy(&src, &dest) {
                             log_error!("DLL 복사 실패 {:?} → {:?}: {}", src, dest, e);
                         }
@@ -908,7 +918,7 @@ mod commands {
         run_install_lifecycle, DOWNLOAD_CANCELLED, MODELS, ModelInfo,
         get_ram_gb, get_gpu_info, recommended_model, resolve_model,
         is_valid_gguf, write_active_model, read_active_model,
-        n_gpu_layers_for, wait_until_loaded,
+        n_gpu_layers_for,
     };
     use tauri::Manager;
 

@@ -9,9 +9,18 @@ on:
 permissions:
   contents: write
 
+# 동일 브랜치/태그 연속 push 시 이전 빌드 자동 취소
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
+
+    env:
+      # CI 환경에서 incremental 빌드는 캐시 메타데이터 충돌로 히트율만 떨어뜨림.
+      CARGO_INCREMENTAL: 0
 
     steps:
       - name: Checkout
@@ -37,15 +46,36 @@ jobs:
         with:
           workspaces: desktop/src-tauri -> target
 
+      # binaries-latest 릴리즈 asset 의 id·size 를 cache key 로 사용.
+      # 바이너리 재업로드 시 asset.id 가 바뀌므로 자동 무효화됨.
+      - name: Compute binaries cache key
+        id: bkey
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $info = gh api repos/${{ github.repository }}/releases/tags/binaries-latest | ConvertFrom-Json
+          $asset = $info.assets | Where-Object { $_.name -eq 'paperchat-binaries.zip' }
+          "key=binaries-$($asset.id)-$($asset.size)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Cache pre-built binaries
+        id: binaries-cache
+        uses: actions/cache@v4
+        with:
+          path: desktop/src-tauri/binaries
+          key: ${{ steps.bkey.outputs.key }}
+
       - name: Download pre-built binaries
+        if: steps.binaries-cache.outputs.cache-hit != 'true'
         uses: robinraju/release-downloader@v1
         with:
-          repository: KwonCheulJin/paperchat
+          repository: ${{ github.repository }}
           tag: binaries-latest
           fileName: paperchat-binaries.zip
           out-file-path: .
 
       - name: Extract binaries
+        if: steps.binaries-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path desktop/src-tauri/binaries -Force | Out-Null
@@ -62,24 +92,21 @@ jobs:
         working-directory: desktop
         run: pnpm install
 
+      # MSI 는 배포 채널에 사용하지 않으므로 NSIS 만 생성 → 빌드 시간 단축
       - name: Build Tauri app
         working-directory: desktop
-        run: pnpm tauri build
+        run: pnpm tauri build --bundles nsis
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: paperchat-installer-${{ github.sha }}
-          path: |
-            desktop/src-tauri/target/release/bundle/nsis/*.exe
-            desktop/src-tauri/target/release/bundle/msi/*.msi
+          path: desktop/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            desktop/src-tauri/target/release/bundle/nsis/*.exe
-            desktop/src-tauri/target/release/bundle/msi/*.msi
+          files: desktop/src-tauri/target/release/bundle/nsis/*.exe
           generate_release_notes: true
