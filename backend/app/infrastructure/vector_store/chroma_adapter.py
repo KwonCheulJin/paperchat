@@ -10,6 +10,7 @@ multilingual-e5-large 특징:
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 from fastembed import TextEmbedding
@@ -37,10 +38,29 @@ def _embed_cache_dir() -> str:
     return str(path)
 
 
+def _clear_corrupt_snapshots(cache_dir: str) -> None:
+    """불완전 다운로드로 손상된 스냅샷 디렉토리를 삭제해 재다운로드를 유도한다.
+
+    fastembed는 스냅샷 디렉토리가 존재하면 로드를 시도하는데,
+    다운로드 중단 시 config.json 없는 상태로 남아 오류가 발생한다.
+    """
+    for model_dir in Path(cache_dir).glob("models--*"):
+        snapshots = model_dir / "snapshots"
+        if not snapshots.is_dir():
+            continue
+        for snap in snapshots.iterdir():
+            if snap.is_dir() and not (snap / "config.json").exists():
+                logger.warning("embed_cache_corrupt_detected", snapshot=str(snap))
+                shutil.rmtree(model_dir, ignore_errors=True)
+                logger.info("embed_cache_cleared", model_dir=str(model_dir))
+                break
+
+
 def _get_embed_model() -> TextEmbedding:
     global _embed_model
     if _embed_model is None:
         cache_dir = _embed_cache_dir()
+        _clear_corrupt_snapshots(cache_dir)
         logger.info("embed_model_loading", model=settings.embed_model, cache_dir=cache_dir)
         _embed_model = TextEmbedding(settings.embed_model, cache_dir=cache_dir)
         logger.info("embed_model_loaded", model=settings.embed_model)
