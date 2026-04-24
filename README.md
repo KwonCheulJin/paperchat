@@ -10,6 +10,10 @@
 - **모델 자동 다운로드** — 추천 모델을 앱 내에서 직접 다운로드
 - **스트리밍 응답** — SSE 기반 실시간 토큰 스트리밍
 - **세션 관리** — 채팅 세션 생성·삭제·전환
+- **GPU 가속 (CUDA)** — CUDA 지원 GPU 감지 시 llama-server CUDA 버전 자동 선택
+- **OCR 지원** — 설치 시 Tesseract-OCR 자동 설치, 한국어(kor) 학습 데이터 포함
+- **Reranker** — 하이브리드 검색 결과를 재순위화해 관련도 점수와 함께 표시
+- **모델 관리 Portal** — 앱 내 모델 다운로드·전환·삭제 UI
 
 ## 기술 스택
 
@@ -91,7 +95,7 @@ pnpm tauri dev
 ```bash
 cd desktop
 pnpm tauri build
-# → src-tauri/target/release/bundle/nsis/paperchat_0.1.0_x64-setup.exe
+# → src-tauri/target/release/bundle/nsis/paperchat_X.Y.Z_x64-setup.exe
 ```
 
 ## 데이터 저장 경로
@@ -102,6 +106,22 @@ pnpm tauri build
 | 모델 파일 | `%LOCALAPPDATA%\com.paperchat.desktop\models\` |
 | 로그 | `%LOCALAPPDATA%\com.paperchat.desktop\tauri.log` |
 | 백엔드 DB | `%LOCALAPPDATA%\com.paperchat.desktop\paperchat.db` |
+
+## 인스톨러 커스터마이징
+
+NSIS 인스톨러는 프로젝트 컬러·아이콘으로 브랜딩되어 있다.
+
+| 파일 | 설명 |
+|------|------|
+| `desktop/src-tauri/nsis/sidebar.bmp` | Welcome 페이지 사이드바 (164×314 px) |
+| `desktop/src-tauri/nsis/header.bmp` | 내부 페이지 헤더 (150×57 px) |
+| `desktop/src-tauri/nsis/installer-hooks.nsh` | 설치/제거 커스텀 훅 |
+| `scripts/generate-installer-bitmaps.py` | BMP 재생성 스크립트 |
+
+**아이콘 재생성**:
+```bash
+pnpm tauri icon scripts/paperchat-icon-1024.png
+```
 
 ## CI/CD
 
@@ -115,8 +135,8 @@ pnpm tauri build
 ### 릴리즈 배포
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 ### 바이너리 업데이트

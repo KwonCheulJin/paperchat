@@ -29,6 +29,11 @@
 │   └── src-tauri/        # Rust 코어 (하드웨어 감지, 프로세스 관리, IPC)
 │       └── binaries/     # backend.exe + llama-server.exe (git 제외)
 │
+├── scripts/              # 개발 유틸리티 스크립트
+│   ├── paperchat-icon-1024.png       # 앱 아이콘 소스 (1024×1024, 투명 배경)
+│   ├── generate-installer-bitmaps.py # NSIS sidebar/header BMP 생성
+│   └── remove-black-bg.py            # 아이콘 배경 제거 (BFS flood-fill)
+│
 └── backend/              # FastAPI (RAG + 문서 관리)
     ├── app/
     │   ├── api/          # routes/ + schemas/ (HTTP 레이어)
@@ -125,6 +130,11 @@ git push --no-verify
 - `[{"src":"...","dest":"..."}]` 배열-of-objects 형식은 Tauri 2 스키마 오류
 - 올바른 예: `{"binaries/llama-server.exe": "."}`
 
+**NSIS 커스텀 파일 위치**:
+- `desktop/src-tauri/nsis/installer-hooks.nsh` — 설치/제거 훅 (PREINSTALL · POSTINSTALL · PREUNINSTALL · POSTUNINSTALL)
+- `desktop/src-tauri/nsis/sidebar.bmp` — 164×314 px, 인스톨러 사이드바
+- `desktop/src-tauri/nsis/header.bmp` — 150×57 px, 인스톨러 헤더
+
 ## Backend Architecture
 
 **Hexagonal Architecture (Ports & Adapters)**
@@ -141,7 +151,7 @@ git push --no-verify
 **사용자**: 직장인 — 보고서·계약서·내부 규정집 등 업무 문서를 집중 환경에서 사용.
 
 **디자인 원칙**: 정밀하고(precise) · 절제된(restrained) · 유능한(capable)
-- 다크 테마, 보라 계열 액센트 (OKLCH, 희귀하게 사용)
+- 다크 테마, 앰버-오렌지 액센트 (#D07030, OKLCH 0.6724 0.1308 38.76)
 - 콘텐츠 전면, UI 크롬 후면
 - 사이버펑크/네온, SaaS 대시보드 패턴 금지
 
