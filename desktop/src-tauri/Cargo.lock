@@ -2318,7 +2318,7 @@ dependencies = [
 
 [[package]]
 name = "paperchat"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "once_cell",
  "reqwest 0.12.28",

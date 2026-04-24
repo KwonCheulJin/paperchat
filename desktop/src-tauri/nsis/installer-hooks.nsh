@@ -73,6 +73,47 @@
   tesseract_done:
 !macroend
 
+; ── 설치 완료 후 Windows 아이콘 캐시 강제 갱신 ──────────────────────────────
+; 문제 원인:
+;   1. iconcache_*.db 는 Explorer 실행 중 잠금 → 삭제 전 Explorer 종료 필수
+;   2. Exec '"$WINDIR\explorer.exe"' 는 인스톨러(관리자) 권한으로 Explorer 시작
+;      → 사용자 컨텍스트 불일치로 캐시 갱신 실패
+;   3. 작업표시줄 핀 아이콘은 별도 경로(%AppData%\...\TaskBar\)에 캐시
+;      → iconcache 삭제만으로는 갱신 안 됨
+; 해결책:
+;   NSIS 인라인 이스케이프 문제를 피해 임시 PS1 파일에 로직 작성 후 실행.
+;   Start-Process explorer.exe 는 PowerShell(사용자 컨텍스트)에서 호출
+;   → 올바른 권한으로 Explorer 재시작.
+!macro NSIS_HOOK_POSTINSTALL
+  DetailPrint "아이콘 캐시 초기화 중..."
+  ; 임시 PS1 스크립트 파일 작성
+  FileOpen $0 "$TEMP\pc_icon_refresh.ps1" w
+  FileWrite $0 "# paperchat 아이콘 캐시 초기화$\r$\n"
+  FileWrite $0 "Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue$\r$\n"
+  FileWrite $0 "Start-Sleep -Milliseconds 1500$\r$\n"
+  FileWrite $0 "$$local = [Environment]::GetFolderPath('LocalApplicationData')$\r$\n"
+  FileWrite $0 "$$roaming = [Environment]::GetFolderPath('ApplicationData')$\r$\n"
+  FileWrite $0 "$$exp = Join-Path $$local 'Microsoft\Windows\Explorer'$\r$\n"
+  FileWrite $0 "# iconcache 삭제 (Windows 10/11: iconcache_16.db, 32.db, 256.db ...)$\r$\n"
+  FileWrite $0 "Get-ChildItem $$exp -Filter 'iconcache_*.db' -EA SilentlyContinue | Remove-Item -Force -EA SilentlyContinue$\r$\n"
+  FileWrite $0 "# thumbcache 삭제$\r$\n"
+  FileWrite $0 "Get-ChildItem $$exp -Filter 'thumbcache_*.db' -EA SilentlyContinue | Remove-Item -Force -EA SilentlyContinue$\r$\n"
+  FileWrite $0 "# 구형 캐시 삭제 (Windows 7~10)$\r$\n"
+  FileWrite $0 "Remove-Item (Join-Path $$local 'IconCache.db') -Force -EA SilentlyContinue$\r$\n"
+  FileWrite $0 "# 작업표시줄 핀 아이콘 갱신 (LastWriteTime 갱신으로 재읽기 유도)$\r$\n"
+  FileWrite $0 "$$tb = Join-Path $$roaming 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'$\r$\n"
+  FileWrite $0 "Get-ChildItem $$tb -Filter 'paperchat*' -EA SilentlyContinue | ForEach-Object { $$_.LastWriteTime = Get-Date }$\r$\n"
+  FileWrite $0 "Start-Sleep -Milliseconds 500$\r$\n"
+  FileWrite $0 "# Shell 아이콘 갱신 신호$\r$\n"
+  FileWrite $0 "ie4uinit.exe -show$\r$\n"
+  FileWrite $0 "# 사용자 컨텍스트로 Explorer 재시작$\r$\n"
+  FileWrite $0 "Start-Process explorer.exe$\r$\n"
+  FileClose $0
+  ; PS1 실행 (PowerShell이 사용자 세션에서 Explorer 재시작)
+  nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$TEMP\pc_icon_refresh.ps1"'
+  Delete "$TEMP\pc_icon_refresh.ps1"
+!macroend
+
 ; ── 언인스톨 훅 ───────────────────────────────────────────────────────────────
 ; PREUNINSTALL 은 파일 제거 전 — 프로세스 종료 타이밍.
 ; POSTUNINSTALL 은 파일 제거 후 — 사용자 데이터 삭제 여부 확인.
