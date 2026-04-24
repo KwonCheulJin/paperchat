@@ -56,6 +56,7 @@ export type UseModelStateReturn = {
 export function useModelState(): UseModelStateReturn {
   const [rustState, setRustState] = useState<RustModelState>({ state: "idle", ram_gb: 0, gpu_name: "", vram_gb: 0, recommended_filename: "", all_models: [] });
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
+  const [cachedAllModels, setCachedAllModels] = useState<ModelInfo[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -64,6 +65,7 @@ export function useModelState(): UseModelStateReturn {
       if (!active) return;
       setRustState(s);
       if (s.state === "idle" && s.all_models.length > 0) {
+        setCachedAllModels(s.all_models);
         const rec = s.all_models.find((m) => m.filename === s.recommended_filename);
         setSelectedModel((prev) => prev ?? rec ?? s.all_models[0]);
       }
@@ -102,7 +104,7 @@ export function useModelState(): UseModelStateReturn {
     downloadProgress: dlData
       ? { percent: dlData.percent, downloadedMb: dlData.downloaded_mb, totalMb: dlData.total_mb, speedMbps: dlData.speed_mbps }
       : null,
-    allModels: idleData?.all_models ?? [],
+    allModels: idleData?.all_models ?? cachedAllModels,
     recommendedModel: idleData
       ? (idleData.all_models.find((m) => m.filename === idleData.recommended_filename) ?? null)
       : null,

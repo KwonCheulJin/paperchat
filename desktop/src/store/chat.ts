@@ -141,9 +141,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           sess.id === sessionId
             ? {
                 ...sess,
-                messages: sess.messages.filter(
-                  (m) => m.id !== assistantMsgId && m.id !== userMsgId
-                ),
+                messages: sess.messages.filter((m) => m.id !== assistantMsgId),
               }
             : sess
         ),

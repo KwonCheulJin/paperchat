@@ -1,6 +1,6 @@
 [package]
 name = "paperchat"
-version = "0.8.3"
+version = "0.9.0"
 description = "paperchat - 사내 문서 AI 어시스턴트"
 authors = []
 edition = "2021"

@@ -16,8 +16,8 @@ type Props = {
 };
 
 export default function ModelSettingsModal({ open, onClose }: Props) {
-  const { models, loading, refresh, switchTo, remove, downloadNew } = useInstalledModels();
-  const { allModels: catalogModels, modelState } = useModelState();
+  const { models, catalog, recommendedFilename, loading, refresh, switchTo, remove, downloadNew } = useInstalledModels();
+  const { modelState } = useModelState();
 
   useEffect(() => {
     if (open) refresh();
@@ -26,8 +26,15 @@ export default function ModelSettingsModal({ open, onClose }: Props) {
   if (!open) return null;
 
   const installedFilenames = new Set(models.map((m) => m.filename));
-  const notInstalled = catalogModels.filter((m) => !installedFilenames.has(m.filename));
+  const notInstalled = catalog.filter((m) => !installedFilenames.has(m.filename));
   const busy = ["downloading", "verifying", "switching", "loading"].includes(modelState);
+
+  const profileOrder = ["micro", "nano", "minimal", "standard", "performance", "maximum"];
+  const recommendedIndex = recommendedFilename
+    ? profileOrder.indexOf(catalog.find((m) => m.filename === recommendedFilename)?.profile ?? "")
+    : profileOrder.length - 1;
+  const isTooLarge = (m: { profile: string }) =>
+    recommendedIndex >= 0 && profileOrder.indexOf(m.profile) > recommendedIndex;
 
   const onBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -146,10 +153,11 @@ export default function ModelSettingsModal({ open, onClose }: Props) {
                         downloadNew(m).catch((e) => alert(String(e)));
                         onClose();
                       }}
-                      disabled={busy}
+                      disabled={busy || isTooLarge(m)}
+                      title={isTooLarge(m) ? "현재 시스템 사양을 초과하는 모델입니다" : undefined}
                       className="px-2.5 py-1 text-xs rounded-xs bg-transparent text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed border border-primary/40 cursor-pointer font-[inherit]"
                     >
-                      다운로드
+                      {isTooLarge(m) ? "사양 초과" : "다운로드"}
                     </button>
                   </li>
                 ))}

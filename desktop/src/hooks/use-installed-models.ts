@@ -9,16 +9,28 @@ export type InstalledModel = {
   meta: ModelInfo | null;
 };
 
+type ModelStatusResult = {
+  all_models: ModelInfo[];
+  recommended: ModelInfo;
+};
+
 export function useInstalledModels() {
   const [models, setModels] = useState<InstalledModel[]>([]);
+  const [catalog, setCatalog] = useState<ModelInfo[]>([]);
+  const [recommendedFilename, setRecommendedFilename] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       setError(null);
-      const list = await invoke<InstalledModel[]>("list_installed_models");
+      const [list, status] = await Promise.all([
+        invoke<InstalledModel[]>("list_installed_models"),
+        invoke<ModelStatusResult>("get_model_status"),
+      ]);
       setModels(list);
+      setCatalog(status.all_models);
+      setRecommendedFilename(status.recommended.filename);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -54,5 +66,5 @@ export function useInstalledModels() {
     });
   }, []);
 
-  return { models, loading, error, refresh, switchTo, remove, downloadNew };
+  return { models, catalog, recommendedFilename, loading, error, refresh, switchTo, remove, downloadNew };
 }

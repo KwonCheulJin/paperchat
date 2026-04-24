@@ -87,6 +87,14 @@ pub struct ModelInfo {
 
 pub const MODELS: &[ModelInfo] = &[
     ModelInfo {
+        profile: "micro",
+        name: "Qwen3 4B",
+        filename: "Qwen3-4B-Q4_K_M.gguf",
+        url: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+        size_gb: 2.6,
+        n_gpu_layers: 0,
+    },
+    ModelInfo {
         profile: "nano",
         name: "Gemma 4 E2B",
         filename: "google_gemma-4-E2B-it-Q4_K_M.gguf",
@@ -404,9 +412,10 @@ fn recommended_model(ram_gb: u64, has_gpu: bool, vram_gb: u64) -> &'static Model
     let profile = if ram_gb >= 64 && has_gpu && vram_gb >= 24 { "maximum" }
         else if ram_gb >= 32 && has_gpu { "performance" }
         else if ram_gb >= 16 { "standard" }
-        else if ram_gb >= 8  { "minimal" }
-        else                  { "nano" };
-    MODELS.iter().find(|m| m.profile == profile).unwrap_or(&MODELS[2])
+        else if ram_gb >= 12 { "minimal" }
+        else if ram_gb >= 6  { "nano" }
+        else                  { "micro" };
+    MODELS.iter().find(|m| m.profile == profile).unwrap_or(&MODELS[3])
 }
 
 fn wait_for_port(port: u16, max_secs: u64) -> bool {
