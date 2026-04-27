@@ -90,6 +90,8 @@ jobs:
 
       - name: Install Node dependencies
         working-directory: desktop
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: pnpm install
 
       # MSI 는 배포 채널에 사용하지 않으므로 NSIS 만 생성 → 빌드 시간 단축
