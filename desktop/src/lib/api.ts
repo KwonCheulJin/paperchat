@@ -98,18 +98,18 @@ export async function* chatStream(
   signal?: AbortSignal,
   continuation?: { entity_type: string; folder: string; doc_id: string | null; offset: number },
 ): AsyncGenerator<SseEvent> {
-  try {
-    const timeoutController = new AbortController();
-    let timedOut = false;
-    const timeoutTimer = setTimeout(() => {
-      timedOut = true;
-      timeoutController.abort();
-    }, 300_000); // 5분 — CPU 환경에서 reranker + LLM TTFT 합산 시간 고려
-    signal?.addEventListener("abort", () => {
-      clearTimeout(timeoutTimer);
-      timeoutController.abort();
-    });
+  const timeoutController = new AbortController();
+  let timedOut = false;
+  const timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    timeoutController.abort();
+  }, 300_000); // 5분 — CPU 환경에서 reranker + LLM TTFT 합산 시간 고려
+  signal?.addEventListener("abort", () => {
+    clearTimeout(timeoutTimer);
+    timeoutController.abort();
+  });
 
+  try {
     // WebView2에서 POST가 간헐적으로 TypeError("Failed to fetch")로 터지는 케이스 존재 → 2회 재시도
     const MAX_ATTEMPTS = 3;
     let res: Response | undefined;
