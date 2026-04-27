@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 # 동일 브랜치/태그 연속 push 시 이전 빌드 자동 취소
 concurrency:
