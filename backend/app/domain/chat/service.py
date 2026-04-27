@@ -171,16 +171,24 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
 
     # 6. Cross-Encoder Rerank → top_k (기본 8, 열거 쿼리 15) — CPU bound, executor로 실행
     _reranker_start = time.monotonic()
-    top_chunks = await loop.run_in_executor(
-        None, functools.partial(rerank, question, search_results, top_k=top_k)
-    )
+    try:
+        top_chunks = await loop.run_in_executor(
+            None, functools.partial(rerank, question, search_results, top_k=top_k)
+        )
+    except Exception as _re:
+        # reranker 로드 실패(모델 없음 등) 시 RRF 점수 기준 상위 청크로 폴백
+        _log.warning("rerank_failed_fallback", error=str(_re))
+        top_chunks = list(search_results)[:top_k]
     _reranker_ms = int((time.monotonic() - _reranker_start) * 1000)
 
     # 7. 부모 섹션 텍스트 확장
     parent_ids = [c["parent_id"] for c in top_chunks if c.get("parent_id")]
     parent_texts: dict[str, str] = {}
     if parent_ids:
-        parent_texts = await loop.run_in_executor(None, get_parent_texts, parent_ids)
+        try:
+            parent_texts = await loop.run_in_executor(None, get_parent_texts, parent_ids)
+        except Exception as _pe:
+            _log.warning("parent_texts_failed", error=str(_pe))
 
     # 부모 텍스트가 있으면 chunk 텍스트를 부모 섹션으로 교체 (LLM 컨텍스트 토큰 제한)
     MAX_CHUNK_CHARS = 1200  # 한국어 기준 약 600 토큰

@@ -246,6 +246,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }));
     }
 
+    // 응답이 완전히 비어있으면 placeholder 메시지 제거
+    const finalSession = get().sessions.find((s) => s.id === sessionId);
+    const finalMsg = finalSession?.messages.find((m) => m.id === assistantMsgId);
+    if (finalMsg && !finalMsg.content && !sseError) {
+      removeFailedMessages();
+    }
+
     if (sseError) throw new Error("SSE error");
   },
 

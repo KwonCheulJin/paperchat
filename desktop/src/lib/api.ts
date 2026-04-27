@@ -100,7 +100,11 @@ export async function* chatStream(
 ): AsyncGenerator<SseEvent> {
   try {
     const timeoutController = new AbortController();
-    const timeoutTimer = setTimeout(() => timeoutController.abort(), 60_000);
+    let timedOut = false;
+    const timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      timeoutController.abort();
+    }, 300_000); // 5분 — CPU 환경에서 reranker + LLM TTFT 합산 시간 고려
     signal?.addEventListener("abort", () => {
       clearTimeout(timeoutTimer);
       timeoutController.abort();
@@ -146,7 +150,11 @@ export async function* chatStream(
     yield* readSseStream(res);
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
-      return;  // 중지 요청 시 조용히 종료
+      if (timedOut) {
+        yield { type: "error", message: "응답 시간이 초과됐습니다. 다시 시도하거나 더 가벼운 모델을 선택하세요." };
+      }
+      // 사용자가 직접 중지한 경우 조용히 종료
+      return;
     }
     throw e;
   }
