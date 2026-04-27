@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 from fastembed import TextEmbedding
@@ -38,6 +40,31 @@ def _embed_cache_dir() -> str:
     return str(path)
 
 
+def _rmtree_force(path: Path) -> bool:
+    """Windows 파일 잠금을 우회한 강제 디렉토리 삭제. 성공 시 True 반환."""
+    try:
+        shutil.rmtree(path)
+        logger.info("embed_cache_cleared", path=str(path))
+        return True
+    except OSError:
+        pass
+    # Windows fallback: shutil이 파일 잠금으로 실패한 경우 cmd로 강제 삭제
+    if sys.platform == "win32":
+        result = subprocess.run(
+            ["cmd", "/c", "rmdir", "/s", "/q", str(path)],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            logger.info("embed_cache_force_cleared", path=str(path))
+            return True
+        logger.error(
+            "embed_cache_clear_failed",
+            path=str(path),
+            stderr=result.stderr.decode(errors="replace"),
+        )
+    return False
+
+
 def _clear_corrupt_snapshots(cache_dir: str) -> None:
     """불완전 다운로드로 손상된 스냅샷 디렉토리를 삭제해 재다운로드를 유도한다.
 
@@ -51,8 +78,7 @@ def _clear_corrupt_snapshots(cache_dir: str) -> None:
         for snap in snapshots.iterdir():
             if snap.is_dir() and not (snap / "config.json").exists():
                 logger.warning("embed_cache_corrupt_detected", snapshot=str(snap))
-                shutil.rmtree(model_dir, ignore_errors=True)
-                logger.info("embed_cache_cleared", model_dir=str(model_dir))
+                _rmtree_force(model_dir)
                 break
 
 
@@ -62,7 +88,17 @@ def _get_embed_model() -> TextEmbedding:
         cache_dir = _embed_cache_dir()
         _clear_corrupt_snapshots(cache_dir)
         logger.info("embed_model_loading", model=settings.embed_model, cache_dir=cache_dir)
-        _embed_model = TextEmbedding(settings.embed_model, cache_dir=cache_dir)
+        try:
+            _embed_model = TextEmbedding(settings.embed_model, cache_dir=cache_dir)
+        except Exception as e:
+            if "config.json" in str(e):
+                # rmtree 실패 후 여전히 corrupt 상태: qdrant 모델 디렉토리 전체 재시도 삭제 후 재로드
+                logger.warning("embed_model_retry_after_cleanup", error=str(e))
+                for model_dir in Path(cache_dir).glob("models--qdrant--*"):
+                    _rmtree_force(model_dir)
+                _embed_model = TextEmbedding(settings.embed_model, cache_dir=cache_dir)
+            else:
+                raise
         logger.info("embed_model_loaded", model=settings.embed_model)
     return _embed_model
 
