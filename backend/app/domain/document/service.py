@@ -28,6 +28,31 @@ from app.infrastructure.vector_store.chroma_adapter import upsert_chunks
 
 logger = get_logger(__name__)
 
+# SSE comment heartbeat — `data:` 가 아니므로 클라이언트 SSE 파서는 무시.
+# WebView2/proxy 의 idle timeout 회피 용도.
+_HEARTBEAT = ": keepalive\n\n"
+
+# 긴 blocking 작업 중 heartbeat 송출 간격(초). WebView2 자체 idle threshold 보다 충분히 짧게.
+_HEARTBEAT_INTERVAL_S = 15.0
+
+
+async def _run_blocking_with_heartbeat(fn, *args, interval: float = _HEARTBEAT_INTERVAL_S):
+    """blocking fn을 executor에서 실행하면서 interval 마다 ('tick', None) yield.
+    완료되면 ('result', value) yield 후 종료. 예외는 호출자에게 전파.
+
+    asyncio.shield 로 감싸 wait_for 타임아웃이 내부 fut 를 취소하지 않게 한다.
+    """
+    loop = asyncio.get_event_loop()
+    fut = loop.run_in_executor(None, fn, *args)
+    while True:
+        try:
+            value = await asyncio.wait_for(asyncio.shield(fut), timeout=interval)
+        except asyncio.TimeoutError:
+            yield ("tick", None)
+            continue
+        yield ("result", value)
+        return
+
 
 async def ingest_pdf(
     filename: str,
@@ -46,6 +71,10 @@ async def ingest_pdf(
 
     # None 방어 (Chroma metadata에 None 저장 금지)
     folder = folder or ""
+
+    # 즉시 SSE 응답 시작을 트리거. WebView2 가 헤더 + 첫 바디 청크를 받자마자
+    # idle timeout 카운터를 리셋하므로 이후 blocking 단계 안전.
+    yield _HEARTBEAT
 
     # trace_id: doc_id 생성 전에 filename 기반으로 생성 (doc_id 이후 교체)
     _trace_id = str(uuid.uuid4())[:12]
@@ -76,11 +105,14 @@ async def ingest_pdf(
 
     yield _sse({"type": "progress", "message": "파싱 중..."})
 
-    # 2. 텍스트 추출 (blocking → executor)
+    # 2. 텍스트 추출 (blocking → executor + heartbeat)
+    pages = None
     try:
-        pages = await asyncio.get_event_loop().run_in_executor(
-            None, _extract_text, content
-        )
+        async for kind, value in _run_blocking_with_heartbeat(_extract_text, content):
+            if kind == "tick":
+                yield _HEARTBEAT
+            else:
+                pages = value
     except ValueError as e:
         yield _sse({"type": "error", "message": str(e)})
         return
@@ -95,9 +127,11 @@ async def ingest_pdf(
 
         yield _sse({"type": "progress", "message": "OCR 처리 중... (스캔 PDF 감지됨)"})
         try:
-            pages = await asyncio.get_event_loop().run_in_executor(
-                None, _extract_text_ocr, content
-            )
+            async for kind, value in _run_blocking_with_heartbeat(_extract_text_ocr, content):
+                if kind == "tick":
+                    yield _HEARTBEAT
+                else:
+                    pages = value
         except Exception as e:
             err_msg = str(e)
             logger.error("ocr_failed", error=err_msg)
@@ -108,12 +142,18 @@ async def ingest_pdf(
             yield _sse({"type": "error", "message": "스캔 PDF에서 텍스트를 인식하지 못했습니다. 이미지 해상도가 너무 낮거나 지원하지 않는 언어일 수 있습니다."})
             return
 
-    # 3. 계층적 청킹
+    # 3. 계층적 청킹 (대용량 PDF 에서 느릴 수 있음 → heartbeat)
     doc_id = str(uuid.uuid4())
     _log = _log.bind(doc_id=doc_id)  # trace_id에 doc_id 바인딩
-    section_chunks, paragraph_chunks = await asyncio.get_event_loop().run_in_executor(
-        None, _chunk_pages_hierarchical, pages, filename, doc_id
-    )
+    section_chunks: list = []
+    paragraph_chunks: list = []
+    async for kind, value in _run_blocking_with_heartbeat(
+        _chunk_pages_hierarchical, pages, filename, doc_id
+    ):
+        if kind == "tick":
+            yield _HEARTBEAT
+        else:
+            section_chunks, paragraph_chunks = value
 
     # folder는 청크 메타데이터에 일괄 주입 (upsert_chunks에서 Chroma metadata로 기록)
     for c in paragraph_chunks:
@@ -129,8 +169,7 @@ async def ingest_pdf(
     yield _sse({"type": "progress", "message": f"임베딩 중... (0/{total_para} 청크)"})
 
     # 4. SQLite documents + section 청크 먼저 저장 (paragraph FK 참조 전 필요)
-    await asyncio.get_event_loop().run_in_executor(
-        None,
+    async for kind, _ in _run_blocking_with_heartbeat(
         _save_document,
         doc_id,
         filename,
@@ -139,16 +178,22 @@ async def ingest_pdf(
         section_chunks,
         folder,
         settings.embed_model,
-    )
+    ):
+        if kind == "tick":
+            yield _HEARTBEAT
 
     # 5. paragraph 청크 임베딩 + upsert
-    # 원자성 보장: ChromaDB 또는 SQLite 실패 시 롤백 (delete_document 호출)
+    # 원자성 보장: ChromaDB 또는 SQLite 실패 시 롤백 (delete_document 호출).
+    # 첫 배치에서 fastembed cold load (~600MB 다운로드 또는 ~수십초 onnx 로딩)이 발생할 수 있어
+    # 각 배치를 heartbeat 로 감싼다 (Fix-3 eager init 으로 통상 cold load 는 startup 에서 끝남).
     BATCH = 32
     processed = 0
     try:
         for i in range(0, total_para, BATCH):
             batch = paragraph_chunks[i : i + BATCH]
-            await asyncio.get_event_loop().run_in_executor(None, upsert_chunks, batch)
+            async for kind, _ in _run_blocking_with_heartbeat(upsert_chunks, batch):
+                if kind == "tick":
+                    yield _HEARTBEAT
             processed += len(batch)
             yield _sse({
                 "type": "progress",

@@ -163,41 +163,87 @@ export async function* chatStream(
 // POST /documents/ingest — SSE 인제스트 스트리밍
 // WebView2에서 POST FormData가 간헐적으로 TypeError("Failed to fetch")로 실패하는 케이스가 있어
 // 최대 3회(즉시 → 500ms → 1500ms) 재시도한다. 백엔드가 실제로 4xx/5xx를 돌려준 경우엔 재시도하지 않음.
+// 추가로 5분 idle 타임아웃을 두어 OCR/대용량 PDF 처리 중 무한 대기 방지.
+// 백엔드는 SSE comment heartbeat(`: keepalive`)를 15s 마다 송출하므로 정상 처리 중에는 타임아웃 발생 안 함.
 export async function* ingestPDF(file: File, folder: string = ""): AsyncGenerator<SseEvent> {
   const MAX_ATTEMPTS = 3;
+  const TIMEOUT_MS = 300_000; // 5분 — OCR + 임베딩 합산 최악 시나리오 커버
+  const timeoutController = new AbortController();
+  let timedOut = false;
+  const timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    timeoutController.abort();
+  }, TIMEOUT_MS);
+
   let res: Response | undefined;
   let lastError: unknown;
 
-  for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("folder", folder);
-    try {
-      res = await fetch(`${BASE}/documents/ingest`, {
-        method: "POST",
-        body: formData,
-      });
-      break;
-    } catch (e) {
-      lastError = e;
-      if (i < MAX_ATTEMPTS - 1) {
-        await new Promise((r) => setTimeout(r, 500 + i * 1000));
+  try {
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", folder);
+      try {
+        res = await fetch(`${BASE}/documents/ingest`, {
+          method: "POST",
+          body: formData,
+          signal: timeoutController.signal,
+        });
+        break;
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") {
+          // 타임아웃으로 인한 abort 면 재시도하지 않고 즉시 종료.
+          lastError = e;
+          break;
+        }
+        lastError = e;
+        if (i < MAX_ATTEMPTS - 1) {
+          await new Promise((r) => setTimeout(r, 500 + i * 1000));
+        }
       }
     }
+  } finally {
+    // 응답 객체가 있으면 SSE 스트림 동안 타이머 살아 있어야 하므로 finally 에서 끄지 않는다.
+    // 응답이 없으면(모두 실패) 즉시 끈다.
+    if (!res) clearTimeout(timeoutTimer);
   }
 
   if (!res) {
-    const msg = lastError instanceof Error ? lastError.message : String(lastError);
-    yield { type: "error", message: `네트워크 오류 — ${msg} (재시도 ${MAX_ATTEMPTS}회 실패)` };
+    if (timedOut) {
+      yield {
+        type: "error",
+        message: "처리가 너무 오래 걸려 중단됐습니다. 백엔드 로그를 확인하거나 더 작은 PDF로 다시 시도해 주세요.",
+      };
+    } else {
+      const msg = lastError instanceof Error ? lastError.message : String(lastError);
+      yield {
+        type: "error",
+        message: `백엔드에 연결할 수 없습니다 — ${msg} (재시도 ${MAX_ATTEMPTS}회 실패). 앱을 재시작하거나 backend.exe 가 실행 중인지 확인해 주세요.`,
+      };
+    }
     return;
   }
 
   if (!res.ok) {
+    clearTimeout(timeoutTimer);
     yield { type: "error", message: `HTTP ${res.status}: ${res.statusText}` };
     return;
   }
 
-  yield* readSseStream(res);
+  try {
+    yield* readSseStream(res);
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError" && timedOut) {
+      yield {
+        type: "error",
+        message: "처리 도중 응답이 너무 오래 멈춰 중단됐습니다. 백엔드 로그를 확인해 주세요.",
+      };
+      return;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutTimer);
+  }
 }
 
 // GET /documents/ — 문서 목록 조회

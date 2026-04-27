@@ -97,6 +97,23 @@ async def _run_entity_migration() -> None:
     logger.info("entity_migration_done")
 
 
+async def _eager_init_embed_model() -> None:
+    """fastembed 모델을 startup 시점에 미리 로드해 첫 인제스트 응답 지연을 제거.
+
+    cold load 시 ~600MB 다운로드 또는 ~수십초 onnx 초기화가 발생하는데, lazy 로드 시
+    첫 PDF 업로드 응답이 그만큼 지연되어 WebView2 idle timeout 가 끊는 사고로 이어진다.
+    """
+    from app.infrastructure.vector_store.chroma_adapter import _get_embed_model
+
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _get_embed_model)
+        logger.info("embed_model_eager_init_done")
+    except Exception as exc:
+        # 실패해도 fatal 아님 — 첫 ingest 시 lazy 로드 경로가 다시 시도한다.
+        logger.warning("embed_model_eager_init_failed", error=str(exc))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("backend_startup", profile=settings.hardware_profile)
@@ -107,10 +124,13 @@ async def lifespan(app: FastAPI):
     fts5_task = asyncio.create_task(_run_fts5_reindex_migration())
     # 기존 문서 엔티티 마이그레이션
     migration_task = asyncio.create_task(_run_entity_migration())
+    # fastembed 모델 eager 로드 (백그라운드, 실패해도 fatal 아님)
+    embed_init_task = asyncio.create_task(_eager_init_embed_model())
     yield
     scheduler_task.cancel()
     fts5_task.cancel()
     migration_task.cancel()
+    embed_init_task.cancel()
     await close_http_client()
     logger.info("backend_shutdown")
 
