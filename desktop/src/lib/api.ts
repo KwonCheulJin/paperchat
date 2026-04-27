@@ -1,6 +1,7 @@
 // 백엔드 HTTP 클라이언트 모듈
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { captureError } from "@kwoncheulJin/error-monitor";
 
 const BASE = "http://127.0.0.1:8000";
 
@@ -138,16 +139,23 @@ export async function* chatStream(
 
     if (!res) {
       const msg = lastError instanceof Error ? lastError.message : String(lastError);
+      captureError(new Error(`chatStream: ${msg}`), { context: { endpoint: '/chat/stream' } });
       yield { type: "error", message: `연결 실패 — ${msg} (재시도 ${MAX_ATTEMPTS}회 실패)` };
       return;
     }
 
     if (!res.ok) {
+      captureError(new Error(`chatStream: HTTP ${res.status}`), { context: { endpoint: '/chat/stream', status: res.status } });
       yield { type: "error", message: `HTTP ${res.status}: ${res.statusText}` };
       return;
     }
 
-    yield* readSseStream(res);
+    for await (const event of readSseStream(res)) {
+      if (event.type === 'error') {
+        captureError(new Error(event.message), { context: { endpoint: '/chat/stream' } });
+      }
+      yield event;
+    }
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
       if (timedOut) {
@@ -226,12 +234,18 @@ export async function* ingestPDF(file: File, folder: string = ""): AsyncGenerato
 
   if (!res.ok) {
     clearTimeout(timeoutTimer);
+    captureError(new Error(`ingestPDF: HTTP ${res.status}`), { context: { endpoint: '/documents/ingest', status: res.status } });
     yield { type: "error", message: `HTTP ${res.status}: ${res.statusText}` };
     return;
   }
 
   try {
-    yield* readSseStream(res);
+    for await (const event of readSseStream(res)) {
+      if (event.type === 'error') {
+        captureError(new Error(event.message), { context: { endpoint: '/documents/ingest' } });
+      }
+      yield event;
+    }
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError" && timedOut) {
       yield {

@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useInstalledModels } from "../../hooks/use-installed-models";
 import type { ModelInfo } from "../../hooks/use-model-state";
 import { useModelState } from "../../hooks/use-model-state";
 import { I } from "../../shared/ui/icons";
 import { cn } from "@/lib/utils";
+import { isErrorMonitorOptedIn, setErrorMonitorOptIn } from "../../lib/error-monitor";
 
 function formatGB(bytes: number): string {
   return (bytes / 1_073_741_824).toFixed(1);
@@ -18,6 +19,7 @@ type Props = {
 export default function ModelSettingsModal({ open, onClose }: Props) {
   const { models, catalog, recommendedFilename, loading, refresh, switchTo, remove, downloadNew } = useInstalledModels();
   const { modelState } = useModelState();
+  const [optedIn, setOptedIn] = useState(isErrorMonitorOptedIn);
 
   useEffect(() => {
     if (open) refresh();
@@ -170,6 +172,43 @@ export default function ModelSettingsModal({ open, onClose }: Props) {
               다른 작업이 진행 중입니다. 완료 후 다시 시도하세요.
             </p>
           )}
+
+          {/* 에러 모니터링 */}
+          <section>
+            <h3 className="text-xs font-semibold text-[var(--text-dim)] uppercase tracking-[0.06em] mb-2">
+              에러 모니터링
+            </h3>
+            <div className="flex items-center justify-between px-3 py-2 rounded-xs bg-card border border-border">
+              <div className="flex flex-col">
+                <span className="text-sm text-foreground">익명 에러 리포트</span>
+                <span className="text-xs text-[var(--text-dim)]">
+                  앱 오류를 자동 수집합니다. 변경 후 재시작 필요.
+                </span>
+              </div>
+              <button
+                role="switch"
+                aria-checked={optedIn}
+                onClick={() => {
+                  const next = !optedIn;
+                  setOptedIn(next);
+                  setErrorMonitorOptIn(next);
+                }}
+                className={cn(
+                  "relative w-9 h-5 rounded-full border-none cursor-pointer transition-colors shrink-0",
+                  optedIn
+                    ? "bg-primary"
+                    : "bg-[var(--text-muted)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 w-4 h-4 rounded-full bg-background transition-transform",
+                    optedIn ? "translate-x-4" : "translate-x-0.5",
+                  )}
+                />
+              </button>
+            </div>
+          </section>
         </div>
       </div>
     </div>,
