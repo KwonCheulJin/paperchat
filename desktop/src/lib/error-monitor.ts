@@ -1,4 +1,5 @@
 import { initErrorMonitor } from '@kwoncheulJin/error-monitor';
+import { getVersion } from '@tauri-apps/api/app';
 
 export function isErrorMonitorOptedIn(): boolean {
   try {
@@ -27,29 +28,31 @@ function getInstallationId(): string {
 }
 
 if (isErrorMonitorOptedIn()) {
-  initErrorMonitor({
-    projectId: 'paperchat',
-    firebaseConfig: {
-      apiKey: 'AIzaSyD0hZcMshix0oJS40H1kb3vExVN3Uq7AJw',
-      authDomain: 'error-snapshot-650f3.firebaseapp.com',
-      projectId: 'error-snapshot-650f3',
-      storageBucket: 'error-snapshot-650f3.firebasestorage.app',
-      messagingSenderId: '37028497611',
-      appId: '1:37028497611:web:33f371e4770a211a3ab34e',
-    },
-    breadcrumbs: {
-      navigation: false,
-      click: false,
-      fetch: true,
-      console: true,
-    },
-    transport: {
-      enabled: import.meta.env.PROD,
-    },
-    defaultContext: {
-      appVersion: '0.9.4',
-      platform: 'tauri-desktop',
-      installationId: getInstallationId(),
-    },
+  getVersion().then((appVersion) => {
+    initErrorMonitor({
+      projectId: 'paperchat',
+      firebaseConfig: {
+        apiKey: 'AIzaSyD0hZcMshix0oJS40H1kb3vExVN3Uq7AJw',
+        authDomain: 'error-snapshot-650f3.firebaseapp.com',
+        projectId: 'error-snapshot-650f3',
+        storageBucket: 'error-snapshot-650f3.firebasestorage.app',
+        messagingSenderId: '37028497611',
+        appId: '1:37028497611:web:33f371e4770a211a3ab34e',
+      },
+      breadcrumbs: {
+        navigation: false,
+        click: false,
+        fetch: true,
+        console: true,
+      },
+      transport: {
+        enabled: import.meta.env.PROD,
+      },
+      defaultContext: {
+        appVersion,
+        platform: 'tauri-desktop',
+        installationId: getInstallationId(),
+      },
+    });
   });
 }

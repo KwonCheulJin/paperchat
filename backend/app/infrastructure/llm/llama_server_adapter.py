@@ -97,6 +97,9 @@ async def stream_chat(
                     continue
     except httpx.ConnectError:
         raise RuntimeError("llama-server에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.")
+    except httpx.HTTPStatusError as e:
+        body = e.response.text[:200] if e.response.text else ""
+        raise RuntimeError(f"llama-server 오류 ({e.response.status_code}): {body}")
 
 
 @retry(

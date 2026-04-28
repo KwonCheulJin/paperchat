@@ -34,7 +34,7 @@ export type SseEvent =
   | { type: "sources"; sources: Source[] }
   | { type: "done"; cached: boolean; status?: string; doc_id?: string; chunk_count?: number; filename?: string }
   | { type: "progress"; message: string }
-  | { type: "error"; message: string }
+  | { type: "error"; message: string; error_type?: string; prompt_tokens?: number; profile?: string }
   | { type: "tesseract_missing"; message: string }
   | {
       type: "entity_result";
@@ -152,7 +152,14 @@ export async function* chatStream(
 
     for await (const event of readSseStream(res)) {
       if (event.type === 'error') {
-        captureError(new Error(event.message), { context: { endpoint: '/chat/stream' } });
+        captureError(new Error(event.message), {
+          context: {
+            endpoint: '/chat/stream',
+            profile,
+            error_type: event.error_type ?? 'unknown',
+            prompt_tokens: event.prompt_tokens,
+          },
+        });
       }
       yield event;
     }

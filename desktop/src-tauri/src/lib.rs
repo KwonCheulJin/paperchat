@@ -83,6 +83,7 @@ pub struct ModelInfo {
     pub url: &'static str,
     pub size_gb: f32,
     pub n_gpu_layers: i32,
+    pub ctx_size: u32,
 }
 
 pub const MODELS: &[ModelInfo] = &[
@@ -93,6 +94,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
         size_gb: 2.6,
         n_gpu_layers: 0,
+        ctx_size: 2048,
     },
     ModelInfo {
         profile: "nano",
@@ -101,6 +103,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/bartowski/google_gemma-4-E2B-it-GGUF/resolve/main/google_gemma-4-E2B-it-Q4_K_M.gguf",
         size_gb: 3.2,
         n_gpu_layers: 0,
+        ctx_size: 2048,
     },
     ModelInfo {
         profile: "minimal",
@@ -109,6 +112,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/bartowski/google_gemma-4-E4B-it-GGUF/resolve/main/google_gemma-4-E4B-it-Q4_K_M.gguf",
         size_gb: 5.4,
         n_gpu_layers: 0,
+        ctx_size: 3072,
     },
     ModelInfo {
         profile: "standard",
@@ -117,6 +121,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
         size_gb: 5.2,
         n_gpu_layers: 0,
+        ctx_size: 4096,
     },
     ModelInfo {
         profile: "performance",
@@ -125,6 +130,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf",
         size_gb: 9.0,
         n_gpu_layers: 99,
+        ctx_size: 4096,
     },
     ModelInfo {
         profile: "maximum",
@@ -133,6 +139,7 @@ pub const MODELS: &[ModelInfo] = &[
         url: "https://huggingface.co/Qwen/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
         size_gb: 20.0,
         n_gpu_layers: 99,
+        ctx_size: 4096,
     },
 ];
 
@@ -476,6 +483,11 @@ fn n_gpu_layers_for(filename: &str) -> i32 {
     lookup_model_meta(filename).map(|m| m.n_gpu_layers).unwrap_or(0)
 }
 
+/// models/ 디렉토리에서 파일명으로 ctx_size 를 얻음 (메타 없으면 4096).
+fn ctx_size_for(filename: &str) -> u32 {
+    lookup_model_meta(filename).map(|m| m.ctx_size).unwrap_or(4096)
+}
+
 fn resolve_model(data_dir: &std::path::Path) -> Option<(std::path::PathBuf, i32)> {
     let models_dir = data_dir.join("models");
 
@@ -648,12 +660,16 @@ fn launch_llm_process(
     // CPU 추론 시에는 q4_0 유지 (RAM 절약이 더 중요).
     let kv_cache_type = if n_gpu_layers > 0 { "f16" } else { "q4_0" };
 
+    // 프로필별 ctx_size: nano/micro(8GB 이하) = 2048, minimal = 3072, 나머지 = 4096
+    let filename = model_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let ctx_size = ctx_size_for(filename).to_string();
+
     hidden_cmd(llama_bin.to_str().unwrap_or("llama-server"))
         .args([
             "--model", model_path.to_str().unwrap_or(""),
             "--host", "127.0.0.1",
             "--port", "11434",
-            "--ctx-size", "4096",
+            "--ctx-size", &ctx_size,
             "--threads", &cpu_threads,
             // 프롬프트 배치 처리 단위. 256 → 1024 로 확대해 TTFT 단축.
             // (긴 RAG 프롬프트에서 효과 큼)

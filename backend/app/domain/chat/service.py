@@ -246,8 +246,15 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
             full_answer += token
             yield f"data: {json.dumps({'type': 'token', 'content': token}, ensure_ascii=False)}\n\n"
     except Exception as exc:
-        _log.error("stream_chat_failed", error=str(exc))
-        yield f"data: {json.dumps({'type': 'error', 'message': f'LLM 응답 중 오류가 발생했습니다: {exc}'}, ensure_ascii=False)}\n\n"
+        prompt_tokens = sum(len(m.get("content", "")) for m in messages) // 4
+        _log.error(
+            "stream_chat_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            prompt_tokens=prompt_tokens,
+            profile=request.profile,
+        )
+        yield f"data: {json.dumps({'type': 'error', 'message': f'LLM 응답 중 오류가 발생했습니다: {exc}', 'error_type': type(exc).__name__, 'prompt_tokens': prompt_tokens, 'profile': request.profile}, ensure_ascii=False)}\n\n"
         return
 
     # 출력 검증 (경고 추가 등 — 이미 yield된 토큰과 별도로 전체 응답 검증)

@@ -17,6 +17,7 @@ __pycache__/
 .venv/
 backend/dist/
 backend/build/
+backend/backend-*.spec
 
 # 백엔드 런타임 생성 데이터 (로컬 테스트 시)
 data/
